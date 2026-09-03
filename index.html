@@ -509,7 +509,7 @@
             </div>
             <label class="winner-pick">
               <input type="radio" name="winner" value="1" required>
-              <span id="winnerLabel1">Vincitore</span>
+              Vincitore
             </label>
           </div>
 
@@ -520,7 +520,7 @@
             </div>
             <label class="winner-pick">
               <input type="radio" name="winner" value="2">
-              <span id="winnerLabel2">Vincitore</span>
+              Vincitore
             </label>
           </div>
 
@@ -562,6 +562,28 @@
     let renderedPlayers = null;
     let loadedOnce = false;
     let latestLoad = 0;
+    let renderedLoad = 0;
+    let inFlight = 0;
+    let saving = false;
+    let failStreak = 0;
+
+    // Apps Script risponde con una pagina HTML quando Google intercala un
+    // errore o una schermata di autorizzazione. response.json() in quel caso
+    // muore con "Unexpected token '<'", che non dice nulla su cosa sia andato
+    // storto: leggiamo il corpo come testo e diamo un errore parlante.
+    function parseSheetResponse(body, response) {
+      try {
+        return JSON.parse(body);
+      } catch {
+        if (!response.ok) {
+          throw new Error(`il foglio ha risposto ${response.status}`);
+        }
+        if (!body.trim()) {
+          throw new Error('il foglio ha restituito una risposta vuota');
+        }
+        throw new Error('il foglio ha restituito una pagina HTML invece dei dati');
+      }
+    }
 
     // Utility: mostra messaggi
     function showMessage(msg, type = 'info') {
@@ -572,17 +594,28 @@
 
     // Carica i dati dal Google Apps Script
     async function loadData() {
-      // L'auto-refresh gira ogni 10 secondi: piu' richieste possono essere in
-      // volo insieme e risolvere fuori ordine. Teniamo solo la piu' recente.
+      // L'Apps Script risponde in tempi molto variabili (misurati 2s, 7s e 74s
+      // su tre richieste di fila), quindi le risposte possono atterrare fuori
+      // ordine. Una risposta va scartata solo se ne e' GIA' stata mostrata una
+      // piu' recente: scartarla perche' e' partita una richiesta piu' nuova
+      // terrebbe la pagina in caricamento per sempre ogni volta che la latenza
+      // supera l'intervallo di polling.
       const seq = ++latestLoad;
+      inFlight++;
 
       try {
-        const response = await fetch(APPS_SCRIPT_URL);
-        const data = await response.json();
+        // Senza timeout una richiesta appesa non rifiuta mai la promise, e gli
+        // spinner girerebbero a vuoto senza alcun messaggio d'errore.
+        const response = await fetch(APPS_SCRIPT_URL, {
+          signal: AbortSignal.timeout(90000)
+        });
+        const data = parseSheetResponse(await response.text(), response);
 
-        if (seq !== latestLoad) return;
+        if (seq < renderedLoad) return;
 
         if (data.success) {
+          renderedLoad = seq;
+          failStreak = 0;
           allMatches = data.matches || [];
 
           const found = new Set();
@@ -598,24 +631,38 @@
           handleLoadError('Errore nel caricamento dati');
         }
       } catch (error) {
-        if (seq !== latestLoad) return;
-        handleLoadError('Errore di connessione: ' + error.message);
+        if (seq < renderedLoad) return;
+
+        handleLoadError(error.name === 'TimeoutError'
+          ? 'Il foglio non ha risposto in tempo'
+          : 'Caricamento non riuscito: ' + error.message);
+      } finally {
+        inFlight--;
       }
     }
 
-    // I dati gia' a schermo restano: un tick di rete andato male non e'
-    // informazione nuova sulle partite. Ma se non abbiamo mai caricato nulla
-    // gli spinner girerebbero all'infinito, quindi li sostituiamo.
+    // I dati gia' a schermo restano: un tick andato male non e' informazione
+    // nuova sulle partite. Ma se non abbiamo mai caricato nulla gli spinner
+    // girerebbero all'infinito, quindi li sostituiamo.
+    //
+    // I fallimenti isolati non vengono segnalati: sono episodi transitori che il
+    // tick successivo recupera da solo, e con un polling ogni 10 secondi
+    // segnalarli tutti riempirebbe la pagina di banner d'errore per nulla.
     function handleLoadError(msg) {
-      showMessage(msg, 'error');
+      failStreak++;
 
-      if (loadedOnce) return;
+      if (!loadedOnce) {
+        showMessage(msg, 'error');
 
-      const text = 'Dati non disponibili. Premi ⟳ Aggiorna per riprovare.';
-      document.getElementById('stats').innerHTML =
-        `<p style="grid-column: 1/-1; text-align: center;">${text}</p>`;
-      document.getElementById('history').innerHTML =
-        `<p style="text-align: center;">${text}</p>`;
+        const text = 'Dati non disponibili. Premi ⟳ Aggiorna per riprovare.';
+        document.getElementById('stats').innerHTML =
+          `<p style="grid-column: 1/-1; text-align: center;">${text}</p>`;
+        document.getElementById('history').innerHTML =
+          `<p style="text-align: center;">${text}</p>`;
+        return;
+      }
+
+      if (failStreak >= 3) showMessage(msg, 'error');
     }
 
     // Aggiorna dropdown giocatori, preservando la selezione in corso
@@ -645,16 +692,9 @@
       select2.value = players.includes(prev2) ? prev2 : '';
 
       renderedPlayers = players;
-      updateWinnerLabels();
-    }
 
-    // I due radio sono etichettati col nome del giocatore scelto
-    function updateWinnerLabels() {
-      const p1 = document.getElementById('player1').value;
-      const p2 = document.getElementById('player2').value;
-
-      document.getElementById('winnerLabel1').textContent = p1 ? `🏆 ${p1}` : 'Vincitore';
-      document.getElementById('winnerLabel2').textContent = p2 ? `🏆 ${p2}` : 'Vincitore';
+      // Il rebuild puo' aver azzerato una selezione non piu' valida
+      updateSubmitState();
     }
 
     // Calcola statistiche per giocatore
@@ -741,6 +781,11 @@
     function formatDate(value) {
       if (!value) return '?';
 
+      // Una gg/mm/aaaa e' gia' nel formato giusto e va restituita cosi': passarla
+      // a new Date() la farebbe leggere alla americana (03/09 -> 9 marzo).
+      const itDate = /^\d{2}\/\d{2}\/\d{4}$/.exec(String(value).trim());
+      if (itDate) return itDate[0];
+
       const d = new Date(value);
       if (isNaN(d)) return value;
 
@@ -802,20 +847,40 @@
     // Apertura / chiusura del modale
     const matchModal = document.getElementById('matchModal');
     const matchForm = document.getElementById('matchForm');
+    const submitBtn = matchForm.querySelector('.btn-submit');
+
+    // Il salvataggio resta bloccato finche' la partita non e' plausibile: due
+    // giocatori entrambi scelti e diversi tra loro, piu' un vincitore.
+    function updateSubmitState() {
+      // Durante il salvataggio il pulsante lo governa il submit, non questa:
+      // l'auto-refresh in background non deve riabilitarlo a meta' richiesta.
+      if (saving) return;
+
+      const g1 = document.getElementById('player1').value;
+      const g2 = document.getElementById('player2').value;
+      const winner = matchForm.querySelector('input[name="winner"]:checked');
+
+      submitBtn.disabled = !g1 || !g2 || g1 === g2 || !winner;
+    }
 
     function openModal() {
       matchModal.hidden = false;
+      updateSubmitState();
       document.getElementById('player1').focus();
     }
 
     function closeModal() {
       matchModal.hidden = true;
       matchForm.reset();
-      updateWinnerLabels();
+      updateSubmitState();
     }
 
     document.getElementById('openFormBtn').addEventListener('click', openModal);
     document.getElementById('closeFormBtn').addEventListener('click', closeModal);
+
+    // Copre sia i due select sia i radio
+    matchForm.addEventListener('change', updateSubmitState);
+    updateSubmitState();
 
     // Click sullo sfondo (non sul riquadro) e tasto Esc chiudono
     matchModal.addEventListener('click', (e) => {
@@ -826,17 +891,17 @@
       if (e.key === 'Escape' && !matchModal.hidden) closeModal();
     });
 
-    // Le etichette dei radio seguono i giocatori scelti
-    document.getElementById('player1').addEventListener('change', updateWinnerLabels);
-    document.getElementById('player2').addEventListener('change', updateWinnerLabels);
-
-    // Data locale in formato YYYY-MM-DD. toISOString() darebbe UTC: una partita
-    // giocata a tarda sera verrebbe registrata col giorno precedente.
-    function todayISO() {
-      const now = new Date();
-      return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString()
-        .split('T')[0];
+    // Data di oggi in formato gg/mm/aaaa. E' il formato che il foglio (locale
+    // italiano) riconosce come data vera: inviando "2026-09-03" Sheets non lo
+    // interpreta e lo archivia come semplice testo, disallineato dalle altre
+    // righe. Usa il fuso locale, quindi una partita giocata a tarda sera non
+    // slitta al giorno precedente come farebbe toISOString().
+    function todayLocale() {
+      return new Date().toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
     }
 
     // Gestisci submit form
@@ -860,7 +925,7 @@
       }
 
       const formData = {
-        data: todayISO(),
+        data: todayLocale(),
         giocatore1,
         giocatore2,
         // Il foglio registra il nome del vincitore, non la sua posizione
@@ -869,7 +934,7 @@
 
       // Il salvataggio su Apps Script puo' essere lento: senza questo, un
       // doppio click scrive due volte la stessa partita sul foglio.
-      const submitBtn = matchForm.querySelector('.btn-submit');
+      saving = true;
       submitBtn.disabled = true;
       submitBtn.textContent = 'Salvataggio...';
 
@@ -877,10 +942,13 @@
         const response = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(formData),
+          // Senza timeout una POST appesa lascerebbe il pulsante su
+          // "Salvataggio..." per sempre, senza modo di riprovare.
+          signal: AbortSignal.timeout(90000)
         });
 
-        const result = await response.json();
+        const result = parseSheetResponse(await response.text(), response);
 
         if (result.success) {
           showMessage('✅ Partita salvata!', 'success');
@@ -890,12 +958,18 @@
           showMessage('Errore nel salvataggio: ' + result.error, 'error');
         }
       } catch (error) {
-        showMessage('Errore: ' + error.message, 'error');
+        // Qui l'errore va sempre mostrato: a differenza del polling, non c'e'
+        // un tentativo successivo automatico e la partita andrebbe persa.
+        showMessage(error.name === 'TimeoutError'
+          ? 'Salvataggio non confermato in tempo: controlla il foglio prima di riprovare'
+          : 'Salvataggio non riuscito: ' + error.message, 'error');
       } finally {
-        // In caso di errore il modale resta aperto coi dati inseriti,
-        // pronto per un altro tentativo.
-        submitBtn.disabled = false;
+        // In caso di errore il modale resta aperto coi dati inseriti, pronto
+        // per un altro tentativo; dopo un successo il form e' stato resettato,
+        // quindi updateSubmitState lo ritrova vuoto e tiene il pulsante spento.
+        saving = false;
         submitBtn.textContent = 'Salva Partita';
+        updateSubmitState();
       }
     });
 
@@ -908,8 +982,11 @@
     window.addEventListener('load', () => {
       loadData();
 
-      // Auto-refresh ogni 10 secondi
-      setInterval(loadData, 10000);
+      // Auto-refresh ogni 10 secondi, ma senza accodare richieste: con risposte
+      // che possono durare oltre un minuto si accumulerebbero a decine.
+      setInterval(() => {
+        if (inFlight === 0) loadData();
+      }, 10000);
     });
   </script>
 </body>

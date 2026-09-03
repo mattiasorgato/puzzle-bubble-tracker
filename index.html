@@ -941,7 +941,13 @@
       try {
         const response = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          // NON usare application/json: renderebbe la richiesta "non-simple" e
+          // il browser manderebbe prima un preflight OPTIONS, che le Web App
+          // Apps Script non autorizzano (rispondono 200 senza header
+          // access-control-*, e il browser blocca la POST). Con text/plain la
+          // richiesta e' simple e parte senza preflight; il corpo resta lo
+          // stesso JSON, che lo script legge da e.postData.contents.
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
           body: JSON.stringify(formData),
           // Senza timeout una POST appesa lascerebbe il pulsante su
           // "Salvataggio..." per sempre, senza modo di riprovare.

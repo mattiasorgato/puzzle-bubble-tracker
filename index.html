@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 Puzzle Bubble Tracker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    button {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    section {
+      background: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    section h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      color: #667eea;
+    }
+
+    /* Form styles */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .winner-group {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .winner-option {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .winner-option input[type="radio"] {
+      width: auto;
+      margin: 0;
+    }
+
+    .btn-submit {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      width: 100%;
+      padding: 0.75rem;
+      font-weight: 600;
+      border: none;
+      margin-top: 0.5rem;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Stats styles */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      border-left: 4px solid #667eea;
+    }
+
+    .stat-player {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #667eea;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .stat-percentage {
+      font-size: 0.9rem;
+      color: #764ba2;
+      margin-top: 0.25rem;
+    }
+
+    /* History styles */
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .history-table th {
+      background: #f5f5f5;
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #ddd;
+      color: #333;
+    }
+
+    .history-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .history-table tr:hover {
+      background: #f9f9f9;
+    }
+
+    .winner-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .winner-nero {
+      background: #333;
+      color: white;
+    }
+
+    .winner-bianco {
+      background: #f0f0f0;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+
+    /* Loading & error states */
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #999;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: #fee;
+      color: #c00;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      border-left: 4px solid #c00;
+    }
+
+    .success {
+      background: #efe;
+      color: #060;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      border-left: 4px solid #060;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      header h1 {
+        font-size: 1.25rem;
+      }
+
+      header {
+        padding: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      }
+
+      .history-table {
+        font-size: 0.85rem;
+      }
+
+      .history-table th, .history-table td {
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎮 Puzzle Bubble</h1>
+    <button id="refreshBtn">⟳ Aggiorna</button>
+  </header>
+
+  <div class="container">
+    <div id="message"></div>
+
+    <!-- Form sezione -->
+    <section id="formSection">
+      <h2>➕ Nuova Partita</h2>
+      <form id="matchForm">
+        <div class="form-group">
+          <label for="date">Data</label>
+          <input type="date" id="date" required>
+        </div>
+
+        <div class="form-group">
+          <label for="player1">Giocatore 1</label>
+          <select id="player1" required></select>
+        </div>
+
+        <div class="form-group">
+          <label for="player2">Giocatore 2</label>
+          <select id="player2" required></select>
+        </div>
+
+        <div class="form-group">
+          <label>Vincitore</label>
+          <div class="winner-group">
+            <label class="winner-option">
+              <input type="radio" name="winner" value="nero" required>
+              ⚫ Nero
+            </label>
+            <label class="winner-option">
+              <input type="radio" name="winner" value="bianco">
+              ⚪ Bianco
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit">Salva Partita</button>
+      </form>
+    </section>
+
+    <!-- Stats sezione -->
+    <section id="statsSection">
+      <h2>📊 Statistiche</h2>
+      <div id="stats" class="stats-grid">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Caricamento...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- History sezione -->
+    <section id="historySection">
+      <h2>📝 Storico Partite</h2>
+      <div id="history">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Caricamento...</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // CONFIG - MODIFICA QUESTO CON IL TUO URL
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrHf77BY5fpdT7jUr24ZOsAt8W61B8BZv59IhzemVVxpG5aalhTLbMoK8MKpAcsJ3iyg/exec'; // Sostituisci con il tuo
+
+    let allMatches = [];
+    let players = new Set();
+
+    // Utility: mostra messaggi
+    function showMessage(msg, type = 'info') {
+      const el = document.getElementById('message');
+      el.innerHTML = `<div class="${type}">${msg}</div>`;
+      setTimeout(() => { el.innerHTML = ''; }, 4000);
+    }
+
+    // Carica i dati dal Google Apps Script
+    async function loadData() {
+      try {
+        const response = await fetch(APPS_SCRIPT_URL);
+        const data = await response.json();
+
+        if (data.success) {
+          allMatches = data.matches || [];
+          players = new Set();
+
+          allMatches.forEach(match => {
+            players.add(match.giocatore1);
+            players.add(match.giocatore2);
+          });
+
+          players = Array.from(players).sort();
+          updateUI();
+        } else {
+          showMessage('Errore nel caricamento dati', 'error');
+        }
+      } catch (error) {
+        showMessage('Errore di connessione: ' + error.message, 'error');
+      }
+    }
+
+    // Aggiorna dropdown giocatori
+    function updatePlayerSelects() {
+      const select1 = document.getElementById('player1');
+      const select2 = document.getElementById('player2');
+
+      select1.innerHTML = '<option value="">-- Seleziona --</option>';
+      select2.innerHTML = '<option value="">-- Seleziona --</option>';
+
+      players.forEach(p => {
+        select1.innerHTML += `<option value="${p}">${p}</option>`;
+        select2.innerHTML += `<option value="${p}">${p}</option>`;
+      });
+    }
+
+    // Calcola statistiche per giocatore
+    function getPlayerStats(player) {
+      const played = allMatches.filter(
+        m => m.giocatore1 === player || m.giocatore2 === player
+      );
+
+      const wins = allMatches.filter(m => {
+        if (m.giocatore1 === player) return m.vincitore === 'nero';
+        if (m.giocatore2 === player) return m.vincitore === 'bianco';
+        return false;
+      }).length;
+
+      const losses = played.length - wins;
+      const winPercent = played.length > 0 ? ((wins / played.length) * 100).toFixed(1) : 0;
+
+      return { wins, losses, played: played.length, winPercent };
+    }
+
+    // Aggiorna le statistiche
+    function updateStats() {
+      const statsDiv = document.getElementById('stats');
+
+      if (players.length === 0) {
+        statsDiv.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Nessun dato ancora</p>';
+        return;
+      }
+
+      statsDiv.innerHTML = players.map(player => {
+        const stats = getPlayerStats(player);
+        return `
+          <div class="stat-card">
+            <div class="stat-player">${player}</div>
+            <div class="stat-value">${stats.wins}-${stats.losses}</div>
+            <div class="stat-label">W-L Record</div>
+            <div class="stat-percentage">${stats.winPercent}% win</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Aggiorna lo storico
+    function updateHistory() {
+      const historyDiv = document.getElementById('history');
+
+      if (allMatches.length === 0) {
+        historyDiv.innerHTML = '<p style="text-align: center;">Nessuna partita ancora</p>';
+        return;
+      }
+
+      const sorted = [...allMatches].reverse();
+      const rows = sorted.map((match, idx) => {
+        const winnerBadge = match.vincitore === 'nero'
+          ? `<span class="winner-badge winner-nero">⚫ ${match.giocatore1}</span>`
+          : `<span class="winner-badge winner-bianco">⚪ ${match.giocatore2}</span>`;
+
+        return `
+          <tr>
+            <td>${match.data || '?'}</td>
+            <td>${match.giocatore1}</td>
+            <td>${match.giocatore2}</td>
+            <td>${winnerBadge}</td>
+          </tr>
+        `;
+      }).join('');
+
+      historyDiv.innerHTML = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Giocatore 1</th>
+              <th>Giocatore 2</th>
+              <th>Vincitore</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // Aggiorna tutta l'UI
+    function updateUI() {
+      updatePlayerSelects();
+      updateStats();
+      updateHistory();
+    }
+
+    // Gestisci submit form
+    document.getElementById('matchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = {
+        data: document.getElementById('date').value,
+        giocatore1: document.getElementById('player1').value,
+        giocatore2: document.getElementById('player2').value,
+        vincitore: document.querySelector('input[name="winner"]:checked').value
+      };
+
+      // Validazione base
+      if (!formData.giocatore1 || !formData.giocatore2 || formData.giocatore1 === formData.giocatore2) {
+        showMessage('Seleziona due giocatori diversi', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          showMessage('✅ Partita salvata!', 'success');
+          document.getElementById('matchForm').reset();
+          document.getElementById('date').valueAsDate = new Date();
+          await loadData();
+        } else {
+          showMessage('Errore nel salvataggio: ' + result.error, 'error');
+        }
+      } catch (error) {
+        showMessage('Errore: ' + error.message, 'error');
+      }
+    });
+
+    // Refresh button
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      loadData();
+    });
+
+    // Carica dati on mount
+    window.addEventListener('load', () => {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('date').value = today;
+      loadData();
+
+      // Auto-refresh ogni 10 secondi
+      setInterval(loadData, 10000);
+    });
+  </script>
+</body>
+</html>

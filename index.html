@@ -100,22 +100,122 @@
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
-    .winner-group {
+    /* Nuova partita: pulsante + modale */
+    .btn-new-match {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      width: 100%;
+      padding: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn-new-match:hover {
+      background: linear-gradient(135deg, #5a6fd8 0%, #6a4292 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.5);
       display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    /* Serve esplicito: .modal-overlay{display:flex} batterebbe [hidden] */
+    .modal-overlay[hidden] {
+      display: none;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .modal-header h2 {
+      font-size: 1.25rem;
+      color: #667eea;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 1rem;
+      padding: 0.25rem 0.5rem;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .modal-hint {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 1.25rem;
+    }
+
+    .player-row {
+      display: flex;
+      align-items: flex-end;
       gap: 1rem;
       margin-bottom: 1rem;
     }
 
-    .winner-option {
+    .player-field {
       flex: 1;
+      min-width: 0;
+    }
+
+    .winner-pick {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      margin: 0;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #666;
+      cursor: pointer;
+      white-space: nowrap;
+      max-width: 45%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .winner-option input[type="radio"] {
+    .winner-pick input[type="radio"] {
       width: auto;
       margin: 0;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .winner-pick:has(input:checked) {
+      border-color: #667eea;
+      background: rgba(102, 126, 234, 0.08);
+      color: #667eea;
     }
 
     .btn-submit {
@@ -128,9 +228,85 @@
       margin-top: 0.5rem;
     }
 
+    /* Il background va ridichiarato: button:hover e' piu' specifico di
+       .btn-submit e sbiancherebbe il gradiente sotto al testo bianco. */
     .btn-submit:hover {
+      background: linear-gradient(135deg, #5a6fd8 0%, #6a4292 100%);
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-submit:disabled:hover {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Podio */
+    .podium {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    .podium:not(:empty) {
+      margin-bottom: 1.5rem;
+    }
+
+    .podium-place {
+      flex: 1;
+      max-width: 160px;
+      text-align: center;
+    }
+
+    .podium-medal {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .podium-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin: 0.35rem 0 0.15rem;
+      overflow-wrap: anywhere;
+    }
+
+    .podium-rate {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+
+    .podium-record {
+      font-size: 0.8rem;
+      color: #999;
+      margin-bottom: 0.5rem;
+    }
+
+    .podium-block {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px 8px 0 0;
+      color: white;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .podium-1 .podium-block {
+      height: 90px;
+      background: linear-gradient(180deg, #f4c14b 0%, #d19b1f 100%);
+    }
+
+    .podium-2 .podium-block {
+      height: 65px;
+      background: linear-gradient(180deg, #cfd6de 0%, #9aa5b1 100%);
+    }
+
+    .podium-3 .podium-block {
+      height: 48px;
+      background: linear-gradient(180deg, #e0a877 0%, #b57a45 100%);
     }
 
     /* Stats styles */
@@ -206,17 +382,8 @@
       border-radius: 20px;
       font-size: 0.85rem;
       font-weight: 600;
-    }
-
-    .winner-nero {
-      background: #333;
-      color: white;
-    }
-
-    .winner-bianco {
-      background: #f0f0f0;
-      color: #333;
-      border: 1px solid #ddd;
+      background: rgba(102, 126, 234, 0.12);
+      color: #4c56b8;
     }
 
     /* Loading & error states */
@@ -273,12 +440,40 @@
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
       }
 
+      .podium {
+        gap: 0.4rem;
+      }
+
+      .podium-name {
+        font-size: 0.8rem;
+      }
+
+      .podium-rate {
+        font-size: 0.75rem;
+      }
+
+      .podium-record {
+        font-size: 0.7rem;
+      }
+
       .history-table {
         font-size: 0.85rem;
       }
 
       .history-table th, .history-table td {
         padding: 0.5rem;
+      }
+
+      /* Su schermo stretto select e radio vanno impilati */
+      .player-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+      }
+
+      .winner-pick {
+        max-width: none;
+        justify-content: center;
       }
     }
   </style>
@@ -292,46 +487,52 @@
   <div class="container">
     <div id="message"></div>
 
-    <!-- Form sezione -->
-    <section id="formSection">
-      <h2>➕ Nuova Partita</h2>
-      <form id="matchForm">
-        <div class="form-group">
-          <label for="date">Data</label>
-          <input type="date" id="date" required>
+    <button id="openFormBtn" class="btn-new-match">➕ Nuova Partita</button>
+
+    <!-- Modale nuova partita -->
+    <div id="matchModal" class="modal-overlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-header">
+          <h2 id="modalTitle">➕ Nuova Partita</h2>
+          <button type="button" id="closeFormBtn" class="modal-close" aria-label="Chiudi">✕</button>
         </div>
 
-        <div class="form-group">
-          <label for="player1">Giocatore 1</label>
-          <select id="player1" required></select>
-        </div>
+        <form id="matchForm">
+          <p class="modal-hint">Scegli i due giocatori e segna chi ha vinto. La data viene registrata automaticamente.</p>
 
-        <div class="form-group">
-          <label for="player2">Giocatore 2</label>
-          <select id="player2" required></select>
-        </div>
-
-        <div class="form-group">
-          <label>Vincitore</label>
-          <div class="winner-group">
-            <label class="winner-option">
-              <input type="radio" name="winner" value="nero" required>
-              ⚫ Nero
-            </label>
-            <label class="winner-option">
-              <input type="radio" name="winner" value="bianco">
-              ⚪ Bianco
+          <!-- Il radio indica lo slot; al submit viene tradotto nel nome del
+               giocatore selezionato, che e' cio' che il foglio registra. -->
+          <div class="player-row">
+            <div class="player-field">
+              <label for="player1">Giocatore 1</label>
+              <select id="player1" required></select>
+            </div>
+            <label class="winner-pick">
+              <input type="radio" name="winner" value="1" required>
+              <span id="winnerLabel1">Vincitore</span>
             </label>
           </div>
-        </div>
 
-        <button type="submit" class="btn-submit">Salva Partita</button>
-      </form>
-    </section>
+          <div class="player-row">
+            <div class="player-field">
+              <label for="player2">Giocatore 2</label>
+              <select id="player2" required></select>
+            </div>
+            <label class="winner-pick">
+              <input type="radio" name="winner" value="2">
+              <span id="winnerLabel2">Vincitore</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn-submit">Salva Partita</button>
+        </form>
+      </div>
+    </div>
 
     <!-- Stats sezione -->
     <section id="statsSection">
       <h2>📊 Statistiche</h2>
+      <div id="podium" class="podium"></div>
       <div id="stats" class="stats-grid">
         <div class="loading">
           <div class="spinner"></div>
@@ -357,7 +558,10 @@
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrHf77BY5fpdT7jUr24ZOsAt8W61B8BZv59IhzemVVxpG5aalhTLbMoK8MKpAcsJ3iyg/exec'; // Sostituisci con il tuo
 
     let allMatches = [];
-    let players = new Set();
+    let players = [];
+    let renderedPlayers = null;
+    let loadedOnce = false;
+    let latestLoad = 0;
 
     // Utility: mostra messaggi
     function showMessage(msg, type = 'info') {
@@ -368,41 +572,89 @@
 
     // Carica i dati dal Google Apps Script
     async function loadData() {
+      // L'auto-refresh gira ogni 10 secondi: piu' richieste possono essere in
+      // volo insieme e risolvere fuori ordine. Teniamo solo la piu' recente.
+      const seq = ++latestLoad;
+
       try {
         const response = await fetch(APPS_SCRIPT_URL);
         const data = await response.json();
 
+        if (seq !== latestLoad) return;
+
         if (data.success) {
           allMatches = data.matches || [];
-          players = new Set();
 
+          const found = new Set();
           allMatches.forEach(match => {
-            players.add(match.giocatore1);
-            players.add(match.giocatore2);
+            found.add(match.giocatore1);
+            found.add(match.giocatore2);
           });
+          players = Array.from(found).sort();
 
-          players = Array.from(players).sort();
+          loadedOnce = true;
           updateUI();
         } else {
-          showMessage('Errore nel caricamento dati', 'error');
+          handleLoadError('Errore nel caricamento dati');
         }
       } catch (error) {
-        showMessage('Errore di connessione: ' + error.message, 'error');
+        if (seq !== latestLoad) return;
+        handleLoadError('Errore di connessione: ' + error.message);
       }
     }
 
-    // Aggiorna dropdown giocatori
+    // I dati gia' a schermo restano: un tick di rete andato male non e'
+    // informazione nuova sulle partite. Ma se non abbiamo mai caricato nulla
+    // gli spinner girerebbero all'infinito, quindi li sostituiamo.
+    function handleLoadError(msg) {
+      showMessage(msg, 'error');
+
+      if (loadedOnce) return;
+
+      const text = 'Dati non disponibili. Premi ⟳ Aggiorna per riprovare.';
+      document.getElementById('stats').innerHTML =
+        `<p style="grid-column: 1/-1; text-align: center;">${text}</p>`;
+      document.getElementById('history').innerHTML =
+        `<p style="text-align: center;">${text}</p>`;
+    }
+
+    // Aggiorna dropdown giocatori, preservando la selezione in corso
     function updatePlayerSelects() {
       const select1 = document.getElementById('player1');
       const select2 = document.getElementById('player2');
 
-      select1.innerHTML = '<option value="">-- Seleziona --</option>';
-      select2.innerHTML = '<option value="">-- Seleziona --</option>';
+      // Ricostruire le select azzera cio' che l'utente ha appena scelto, e
+      // l'auto-refresh scatta ogni 10 secondi: se la lista giocatori non e'
+      // cambiata non c'e' niente da rifare.
+      const unchanged = renderedPlayers
+        && renderedPlayers.length === players.length
+        && renderedPlayers.every((p, i) => p === players[i]);
 
-      players.forEach(p => {
-        select1.innerHTML += `<option value="${p}">${p}</option>`;
-        select2.innerHTML += `<option value="${p}">${p}</option>`;
-      });
+      if (unchanged) return;
+
+      const prev1 = select1.value;
+      const prev2 = select2.value;
+
+      const options = '<option value="">-- Seleziona --</option>'
+        + players.map(p => `<option value="${p}">${p}</option>`).join('');
+
+      select1.innerHTML = options;
+      select2.innerHTML = options;
+
+      select1.value = players.includes(prev1) ? prev1 : '';
+      select2.value = players.includes(prev2) ? prev2 : '';
+
+      renderedPlayers = players;
+      updateWinnerLabels();
+    }
+
+    // I due radio sono etichettati col nome del giocatore scelto
+    function updateWinnerLabels() {
+      const p1 = document.getElementById('player1').value;
+      const p2 = document.getElementById('player2').value;
+
+      document.getElementById('winnerLabel1').textContent = p1 ? `🏆 ${p1}` : 'Vincitore';
+      document.getElementById('winnerLabel2').textContent = p2 ? `🏆 ${p2}` : 'Vincitore';
     }
 
     // Calcola statistiche per giocatore
@@ -411,16 +663,54 @@
         m => m.giocatore1 === player || m.giocatore2 === player
       );
 
-      const wins = allMatches.filter(m => {
-        if (m.giocatore1 === player) return m.vincitore === 'nero';
-        if (m.giocatore2 === player) return m.vincitore === 'bianco';
-        return false;
-      }).length;
+      // Sul foglio "vincitore" e' il nome del giocatore, non la sua posizione
+      const wins = played.filter(m => m.vincitore === player).length;
 
       const losses = played.length - wins;
       const winPercent = played.length > 0 ? ((wins / played.length) * 100).toFixed(1) : 0;
 
       return { wins, losses, played: played.length, winPercent };
+    }
+
+    // Podio dei 3 migliori win rate. A parita' di percentuale conta chi ha piu'
+    // vittorie, poi chi ha giocato piu' partite, poi l'ordine alfabetico: senza
+    // un criterio totale il refresh ogni 10 secondi farebbe ballare le
+    // posizioni tra giocatori appaiati.
+    function updatePodium() {
+      const podiumDiv = document.getElementById('podium');
+
+      const ranked = players
+        .map(player => ({ player, ...getPlayerStats(player) }))
+        .sort((a, b) =>
+          b.wins / b.played - a.wins / a.played
+          || b.wins - a.wins
+          || b.played - a.played
+          || a.player.localeCompare(b.player)
+        )
+        .slice(0, 3);
+
+      if (ranked.length === 0) {
+        podiumDiv.innerHTML = '';
+        return;
+      }
+
+      const medals = ['🥇', '🥈', '🥉'];
+
+      // Ordine visivo: secondo a sinistra, primo al centro, terzo a destra
+      const layout = [1, 0, 2].filter(i => i < ranked.length);
+
+      podiumDiv.innerHTML = layout.map(i => {
+        const r = ranked[i];
+        return `
+          <div class="podium-place podium-${i + 1}">
+            <div class="podium-medal">${medals[i]}</div>
+            <div class="podium-name">${r.player}</div>
+            <div class="podium-rate">${r.winPercent}% win</div>
+            <div class="podium-record">${r.wins}-${r.losses}</div>
+            <div class="podium-block">${i + 1}</div>
+          </div>
+        `;
+      }).join('');
     }
 
     // Aggiorna le statistiche
@@ -445,6 +735,22 @@
       }).join('');
     }
 
+    // Il foglio restituisce le date come timestamp ISO in UTC: la mezzanotte
+    // locale diventa 22:00Z del giorno prima, quindi va formattata nel fuso
+    // locale o ogni partita risulterebbe giocata il giorno precedente.
+    function formatDate(value) {
+      if (!value) return '?';
+
+      const d = new Date(value);
+      if (isNaN(d)) return value;
+
+      return d.toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
     // Aggiorna lo storico
     function updateHistory() {
       const historyDiv = document.getElementById('history');
@@ -456,13 +762,11 @@
 
       const sorted = [...allMatches].reverse();
       const rows = sorted.map((match, idx) => {
-        const winnerBadge = match.vincitore === 'nero'
-          ? `<span class="winner-badge winner-nero">⚫ ${match.giocatore1}</span>`
-          : `<span class="winner-badge winner-bianco">⚪ ${match.giocatore2}</span>`;
+        const winnerBadge = `<span class="winner-badge">🏆 ${match.vincitore}</span>`;
 
         return `
           <tr>
-            <td>${match.data || '?'}</td>
+            <td>${formatDate(match.data)}</td>
             <td>${match.giocatore1}</td>
             <td>${match.giocatore2}</td>
             <td>${winnerBadge}</td>
@@ -490,26 +794,84 @@
     // Aggiorna tutta l'UI
     function updateUI() {
       updatePlayerSelects();
+      updatePodium();
       updateStats();
       updateHistory();
     }
 
+    // Apertura / chiusura del modale
+    const matchModal = document.getElementById('matchModal');
+    const matchForm = document.getElementById('matchForm');
+
+    function openModal() {
+      matchModal.hidden = false;
+      document.getElementById('player1').focus();
+    }
+
+    function closeModal() {
+      matchModal.hidden = true;
+      matchForm.reset();
+      updateWinnerLabels();
+    }
+
+    document.getElementById('openFormBtn').addEventListener('click', openModal);
+    document.getElementById('closeFormBtn').addEventListener('click', closeModal);
+
+    // Click sullo sfondo (non sul riquadro) e tasto Esc chiudono
+    matchModal.addEventListener('click', (e) => {
+      if (e.target === matchModal) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !matchModal.hidden) closeModal();
+    });
+
+    // Le etichette dei radio seguono i giocatori scelti
+    document.getElementById('player1').addEventListener('change', updateWinnerLabels);
+    document.getElementById('player2').addEventListener('change', updateWinnerLabels);
+
+    // Data locale in formato YYYY-MM-DD. toISOString() darebbe UTC: una partita
+    // giocata a tarda sera verrebbe registrata col giorno precedente.
+    function todayISO() {
+      const now = new Date();
+      return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .split('T')[0];
+    }
+
     // Gestisci submit form
-    document.getElementById('matchForm').addEventListener('submit', async (e) => {
+    matchForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const formData = {
-        data: document.getElementById('date').value,
-        giocatore1: document.getElementById('player1').value,
-        giocatore2: document.getElementById('player2').value,
-        vincitore: document.querySelector('input[name="winner"]:checked').value
-      };
+      const winnerSlot = document.querySelector('input[name="winner"]:checked');
+
+      if (!winnerSlot) {
+        showMessage('Seleziona il vincitore', 'error');
+        return;
+      }
+
+      const giocatore1 = document.getElementById('player1').value;
+      const giocatore2 = document.getElementById('player2').value;
 
       // Validazione base
-      if (!formData.giocatore1 || !formData.giocatore2 || formData.giocatore1 === formData.giocatore2) {
+      if (!giocatore1 || !giocatore2 || giocatore1 === giocatore2) {
         showMessage('Seleziona due giocatori diversi', 'error');
         return;
       }
+
+      const formData = {
+        data: todayISO(),
+        giocatore1,
+        giocatore2,
+        // Il foglio registra il nome del vincitore, non la sua posizione
+        vincitore: winnerSlot.value === '1' ? giocatore1 : giocatore2
+      };
+
+      // Il salvataggio su Apps Script puo' essere lento: senza questo, un
+      // doppio click scrive due volte la stessa partita sul foglio.
+      const submitBtn = matchForm.querySelector('.btn-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Salvataggio...';
 
       try {
         const response = await fetch(APPS_SCRIPT_URL, {
@@ -522,14 +884,18 @@
 
         if (result.success) {
           showMessage('✅ Partita salvata!', 'success');
-          document.getElementById('matchForm').reset();
-          document.getElementById('date').valueAsDate = new Date();
+          closeModal();
           await loadData();
         } else {
           showMessage('Errore nel salvataggio: ' + result.error, 'error');
         }
       } catch (error) {
         showMessage('Errore: ' + error.message, 'error');
+      } finally {
+        // In caso di errore il modale resta aperto coi dati inseriti,
+        // pronto per un altro tentativo.
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Salva Partita';
       }
     });
 
@@ -540,8 +906,6 @@
 
     // Carica dati on mount
     window.addEventListener('load', () => {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('date').value = today;
       loadData();
 
       // Auto-refresh ogni 10 secondi

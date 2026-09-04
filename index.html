@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🎮 Puzzle Bubble Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -11,32 +14,61 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --bg-void: #0d0221;
+      --bg-panel: #1a0b3d;
+      --neon-pink: #ff2e97;
+      --neon-cyan: #00e5ff;
+      --neon-purple: #b967ff;
+      --neon-yellow: #ffd93d;
+      --text-primary: #f4f1ff;
+      --text-muted: #b8a9d9;
+      --font-display: 'Orbitron', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    html, body {
+      overflow-x: hidden;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
-      color: #333;
+      /* Griglia neon (repeating-linear-gradient) + bagliore centrale + gradiente
+         verticale: tutto su background-image, nessun asset esterno. */
+      background:
+        repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.05) 0px, rgba(0, 229, 255, 0.05) 1px, transparent 1px, transparent 40px),
+        repeating-linear-gradient(90deg, rgba(0, 229, 255, 0.05) 0px, rgba(0, 229, 255, 0.05) 1px, transparent 1px, transparent 40px),
+        radial-gradient(ellipse at 50% -10%, rgba(255, 46, 151, 0.25), transparent 60%),
+        linear-gradient(180deg, var(--bg-void) 0%, var(--bg-panel) 45%, var(--bg-void) 100%);
+      background-color: var(--bg-void);
+      color: var(--text-primary);
       line-height: 1.6;
+      min-height: 100vh;
     }
 
     header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-void) 100%);
+      color: var(--text-primary);
       padding: 1.5rem 1rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border-bottom: 2px solid var(--neon-cyan);
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.35);
     }
 
     header h1 {
+      font-family: var(--font-display);
       font-size: 1.5rem;
       font-weight: 700;
+      letter-spacing: 0.03em;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 6px rgba(0, 229, 255, 0.7), 0 0 18px rgba(0, 229, 255, 0.4);
     }
 
     button {
-      background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: white;
+      background: rgba(0, 229, 255, 0.08);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
       padding: 0.5rem 1rem;
       border-radius: 6px;
       cursor: pointer;
@@ -45,12 +77,18 @@
     }
 
     button:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(0, 229, 255, 0.18);
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
     }
 
     button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--neon-cyan);
+      outline-offset: 2px;
     }
 
     .container {
@@ -59,18 +97,63 @@
       padding: 1rem;
     }
 
+    /* Nav a pills */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--bg-panel);
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      border-radius: 999px;
+      padding: 0.35rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-pill {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.65rem 1rem;
+      border-radius: 999px;
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .tab-pill:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-pill.active {
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%);
+      color: var(--bg-void);
+      box-shadow: 0 0 12px rgba(255, 46, 151, 0.5), 0 0 20px rgba(0, 229, 255, 0.35);
+    }
+
+    .tab-pill:focus-visible {
+      outline: 2px solid var(--neon-cyan);
+      outline-offset: 2px;
+    }
+
     section {
-      background: white;
-      border-radius: 8px;
+      background: var(--bg-panel);
+      border: 1px solid rgba(0, 229, 255, 0.15);
+      border-radius: 12px;
       padding: 1.5rem;
       margin-bottom: 1.5rem;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
     }
 
     section h2 {
-      font-size: 1.25rem;
+      font-family: var(--font-display);
+      font-size: 1.1rem;
       margin-bottom: 1rem;
-      color: #667eea;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
     }
 
     /* Form styles */
@@ -83,38 +166,42 @@
       font-weight: 600;
       margin-bottom: 0.5rem;
       font-size: 0.95rem;
+      color: var(--text-primary);
     }
 
     select, input {
       width: 100%;
       padding: 0.75rem;
-      border: 1px solid #ddd;
+      border: 1px solid rgba(0, 229, 255, 0.3);
       border-radius: 6px;
       font-size: 1rem;
       font-family: inherit;
+      background: var(--bg-void);
+      color: var(--text-primary);
     }
 
     select:focus, input:focus {
       outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.2);
     }
 
     /* Nuova partita: pulsante + modale */
     .btn-new-match {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%);
+      color: var(--bg-void);
       border: none;
       width: 100%;
       padding: 1rem;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 1.5rem;
+      box-shadow: 0 0 16px rgba(255, 46, 151, 0.35);
     }
 
     .btn-new-match:hover {
-      background: linear-gradient(135deg, #5a6fd8 0%, #6a4292 100%);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 0 24px rgba(255, 46, 151, 0.55), 0 0 30px rgba(0, 229, 255, 0.4);
     }
 
     .modal-overlay {
@@ -134,14 +221,15 @@
     }
 
     .modal {
-      background: white;
+      background: var(--bg-panel);
+      border: 1px solid var(--neon-purple);
       border-radius: 8px;
       padding: 1.5rem;
       width: 100%;
       max-width: 480px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0 30px rgba(185, 103, 255, 0.4);
     }
 
     .modal-header {
@@ -152,27 +240,29 @@
     }
 
     .modal-header h2 {
-      font-size: 1.25rem;
-      color: #667eea;
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      color: var(--neon-pink);
+      text-shadow: 0 0 6px rgba(255, 46, 151, 0.4);
     }
 
     .modal-close {
       background: none;
       border: none;
-      color: #999;
+      color: var(--text-muted);
       font-size: 1rem;
       padding: 0.25rem 0.5rem;
       line-height: 1;
     }
 
     .modal-close:hover {
-      background: #f0f0f0;
-      color: #333;
+      background: rgba(255, 46, 151, 0.12);
+      color: var(--neon-pink);
     }
 
     .modal-hint {
       font-size: 0.9rem;
-      color: #666;
+      color: var(--text-muted);
       margin-bottom: 1.25rem;
     }
 
@@ -194,10 +284,11 @@
       gap: 0.5rem;
       margin: 0;
       padding: 0.75rem;
-      border: 1px solid #ddd;
+      border: 1px solid rgba(0, 229, 255, 0.3);
       border-radius: 6px;
       font-size: 0.9rem;
-      color: #666;
+      color: var(--text-muted);
+      background: var(--bg-void);
       cursor: pointer;
       white-space: nowrap;
       max-width: 45%;
@@ -213,31 +304,32 @@
     }
 
     .winner-pick:has(input:checked) {
-      border-color: #667eea;
-      background: rgba(102, 126, 234, 0.08);
-      color: #667eea;
+      border-color: var(--neon-pink);
+      background: rgba(255, 46, 151, 0.12);
+      color: var(--neon-pink);
     }
 
     .btn-submit {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%);
+      color: var(--bg-void);
       width: 100%;
       padding: 0.75rem;
-      font-weight: 600;
+      font-weight: 700;
       border: none;
       margin-top: 0.5rem;
+      box-shadow: 0 0 16px rgba(255, 46, 151, 0.3);
     }
 
     /* Il background va ridichiarato: button:hover e' piu' specifico di
-       .btn-submit e sbiancherebbe il gradiente sotto al testo bianco. */
+       .btn-submit e sbiancherebbe il gradiente sotto al testo scuro. */
     .btn-submit:hover {
-      background: linear-gradient(135deg, #5a6fd8 0%, #6a4292 100%);
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 0 24px rgba(255, 46, 151, 0.5), 0 0 30px rgba(0, 229, 255, 0.35);
     }
 
     .btn-submit:disabled:hover {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%);
       transform: none;
       box-shadow: none;
     }
@@ -270,17 +362,18 @@
       font-size: 0.95rem;
       margin: 0.35rem 0 0.15rem;
       overflow-wrap: anywhere;
+      color: var(--text-primary);
     }
 
     .podium-rate {
       font-size: 0.85rem;
-      color: #666;
+      color: var(--text-muted);
       margin-bottom: 0.5rem;
     }
 
     .podium-record {
       font-size: 0.8rem;
-      color: #999;
+      color: var(--text-muted);
       margin-bottom: 0.5rem;
     }
 
@@ -289,24 +382,28 @@
       align-items: center;
       justify-content: center;
       border-radius: 8px 8px 0 0;
-      color: white;
+      color: var(--bg-void);
+      font-family: var(--font-display);
       font-size: 1.25rem;
       font-weight: 700;
     }
 
     .podium-1 .podium-block {
       height: 90px;
-      background: linear-gradient(180deg, #f4c14b 0%, #d19b1f 100%);
+      background: linear-gradient(180deg, var(--neon-yellow) 0%, #ff9d00 100%);
+      box-shadow: 0 0 18px rgba(255, 217, 61, 0.6);
     }
 
     .podium-2 .podium-block {
       height: 65px;
-      background: linear-gradient(180deg, #cfd6de 0%, #9aa5b1 100%);
+      background: linear-gradient(180deg, #d9d9f5 0%, var(--neon-purple) 100%);
+      box-shadow: 0 0 14px rgba(185, 103, 255, 0.45);
     }
 
     .podium-3 .podium-block {
       height: 48px;
-      background: linear-gradient(180deg, #e0a877 0%, #b57a45 100%);
+      background: linear-gradient(180deg, var(--neon-pink) 0%, #a3195b 100%);
+      box-shadow: 0 0 14px rgba(255, 46, 151, 0.45);
     }
 
     /* Stats styles */
@@ -318,35 +415,38 @@
     }
 
     .stat-card {
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      background: var(--bg-void);
       padding: 1rem;
       border-radius: 8px;
       text-align: center;
-      border-left: 4px solid #667eea;
+      border: 1px solid rgba(0, 229, 255, 0.15);
+      border-left: 4px solid var(--neon-cyan);
     }
 
     .stat-player {
       font-weight: 700;
       font-size: 1rem;
       margin-bottom: 0.5rem;
-      color: #333;
+      color: var(--text-primary);
     }
 
     .stat-value {
+      font-family: var(--font-display);
       font-size: 1.75rem;
       font-weight: 700;
-      color: #667eea;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
       margin-bottom: 0.25rem;
     }
 
     .stat-label {
       font-size: 0.85rem;
-      color: #666;
+      color: var(--text-muted);
     }
 
     .stat-percentage {
       font-size: 0.9rem;
-      color: #764ba2;
+      color: var(--neon-pink);
       margin-top: 0.25rem;
     }
 
@@ -359,21 +459,22 @@
     }
 
     .history-table th {
-      background: #f5f5f5;
+      background: var(--bg-void);
       padding: 0.75rem;
       text-align: left;
       font-weight: 600;
-      border-bottom: 2px solid #ddd;
-      color: #333;
+      border-bottom: 2px solid rgba(0, 229, 255, 0.3);
+      color: var(--neon-cyan);
     }
 
     .history-table td {
       padding: 0.75rem;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
     }
 
     .history-table tr:hover {
-      background: #f9f9f9;
+      background: rgba(0, 229, 255, 0.06);
     }
 
     .winner-badge {
@@ -381,24 +482,25 @@
       padding: 0.25rem 0.75rem;
       border-radius: 20px;
       font-size: 0.85rem;
-      font-weight: 600;
-      background: rgba(102, 126, 234, 0.12);
-      color: #4c56b8;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%);
+      color: var(--bg-void);
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
     }
 
     /* Loading & error states */
     .loading {
       text-align: center;
       padding: 2rem;
-      color: #999;
+      color: var(--text-muted);
     }
 
     .spinner {
       display: inline-block;
       width: 20px;
       height: 20px;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #667eea;
+      border: 3px solid rgba(0, 229, 255, 0.15);
+      border-top: 3px solid var(--neon-cyan);
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -408,22 +510,25 @@
       100% { transform: rotate(360deg); }
     }
 
+    /* Errore = rosa neon, successo = ciano neon: stessa coppia di colori del
+       resto del tema ma su ruoli opposti, cosi' restano distinguibili anche
+       senza fare affidamento sul rosso/verde convenzionale. */
     .error {
-      background: #fee;
-      color: #c00;
+      background: rgba(255, 46, 151, 0.15);
+      color: var(--neon-pink);
       padding: 1rem;
       border-radius: 6px;
       margin-bottom: 1rem;
-      border-left: 4px solid #c00;
+      border-left: 4px solid var(--neon-pink);
     }
 
     .success {
-      background: #efe;
-      color: #060;
+      background: rgba(0, 229, 255, 0.12);
+      color: var(--neon-cyan);
       padding: 1rem;
       border-radius: 6px;
       margin-bottom: 1rem;
-      border-left: 4px solid #060;
+      border-left: 4px solid var(--neon-cyan);
     }
 
     /* Responsive */
@@ -434,6 +539,16 @@
 
       header {
         padding: 1rem;
+      }
+
+      .tabs {
+        gap: 0.35rem;
+        padding: 0.25rem;
+      }
+
+      .tab-pill {
+        padding: 0.55rem 0.5rem;
+        font-size: 0.75rem;
       }
 
       .stats-grid {
@@ -529,8 +644,16 @@
       </div>
     </div>
 
+    <!-- Nav a pills: tab-switch tra Statistiche e Storico -->
+    <div class="tabs" role="tablist" aria-label="Sezioni">
+      <button type="button" id="tabStats" class="tab-pill active" role="tab"
+        aria-selected="true" aria-controls="statsSection">📊 Statistiche</button>
+      <button type="button" id="tabHistory" class="tab-pill" role="tab"
+        aria-selected="false" aria-controls="historySection">📝 Storico</button>
+    </div>
+
     <!-- Stats sezione -->
-    <section id="statsSection">
+    <section id="statsSection" role="tabpanel" aria-labelledby="tabStats">
       <h2>📊 Statistiche</h2>
       <div id="podium" class="podium"></div>
       <div id="stats" class="stats-grid">
@@ -542,7 +665,7 @@
     </section>
 
     <!-- History sezione -->
-    <section id="historySection">
+    <section id="historySection" role="tabpanel" aria-labelledby="tabHistory" hidden>
       <h2>📝 Storico Partite</h2>
       <div id="history">
         <div class="loading">
@@ -877,6 +1000,25 @@
 
     document.getElementById('openFormBtn').addEventListener('click', openModal);
     document.getElementById('closeFormBtn').addEventListener('click', closeModal);
+
+    // Nav a pills: indipendente dal modale, nessuno stato persistito tra reload
+    const tabs = [
+      { btn: document.getElementById('tabStats'), panel: document.getElementById('statsSection') },
+      { btn: document.getElementById('tabHistory'), panel: document.getElementById('historySection') }
+    ];
+
+    function switchTab(panelId) {
+      tabs.forEach(({ btn, panel }) => {
+        const active = panel.id === panelId;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+        panel.hidden = !active;
+      });
+    }
+
+    tabs.forEach(({ btn, panel }) => {
+      btn.addEventListener('click', () => switchTab(panel.id));
+    });
 
     // Copre sia i due select sia i radio
     matchForm.addEventListener('change', updateSubmitState);

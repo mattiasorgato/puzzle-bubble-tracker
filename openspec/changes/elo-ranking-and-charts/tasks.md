@@ -18,14 +18,14 @@
 - [x] 3.1 Aggiungere la terza pill `#tabCharts` ("📈 Grafici") nel `role="tablist"` e la sezione `#chartsSection` con `role="tabpanel"` e stato di loading iniziale
 - [x] 3.2 Registrare la nuova coppia pill/pannello nell'array `tabs` (la logica di `switchTab` è già generica e non va modificata)
 - [x] 3.3 Verificare il layout delle pill a tre voci su 320px: nessun overflow, testo non troncato in modo illeggibile
-- [x] 3.4 Aggiungere `playerColor(name)`: slot della palette categorica per indice alfabetico, colore neutro oltre l'ottavo giocatore (nessun riciclo di tinte)
+- [x] 3.4 Aggiungere `playerColor(name)`: slot della palette categorica per indice alfabetico, colore neutro oltre il decimo giocatore (nessun riciclo di tinte)
 
 ## 4. Grafici SVG
 
 - [x] 4.1 Aggiungere `renderRankHistory()`: linea per giocatore, X per giornata, Y sulla posizione in classifica invertita (1 in alto), con legenda nomi/colori
-- [x] 4.2 Aggiungere `renderGamesPlayed()`: barre orizzontali per giocatore ordinate per partite decrescenti, valore numerico accanto a ogni barra
+- [x] 4.2 ~~`renderGamesPlayed()` a barre orizzontali~~ — sostituito in 9.5 da `renderPresencePerDay()`, per allinearlo alla forma delle vittorie per giorno
 - [x] 4.3 Aggiungere `renderWinsPerDay()`: barre verticali per giornata giocata, altezza = partite del giorno, segmenti impilati per vincitore con i colori condivisi
-- [x] 4.4 Aggiungere `updateCharts()` che richiama i tre render, e collegarla a `updateUI`
+- [x] 4.4 Aggiungere `updateCharts()` che richiama i render e collegarla a `updateUI`
 - [x] 4.5 Stato vuoto: messaggio esplicito al posto dei grafici quando `allMatches` è vuoto, senza assi disegnati né errori in console
 - [x] 4.6 SVG responsive (`viewBox` + `width: 100%`), etichette leggibili a 320px, testo degli assi su `--text-muted`/`--text-primary` e non sui colori di serie
 
@@ -56,4 +56,42 @@
 ### Da verificare sul foglio vero
 
 - [ ] 7.6 Ciclo completo di salvataggio: inserire una partita dal form e vedere podio, stat card, grafici e storico aggiornarsi senza reload — richiede l'endpoint Apps Script reale, non coperto dalle verifiche locali (che usano un `fetch` finto)
-- [ ] 7.8 Confrontare la permanenza in vetta e i rating con i dati reali del foglio, per confermare che le date arrivino nel formato atteso
+- [x] 7.8 Formato date confermato sui dati reali del foglio: timestamp ISO in UTC (`2026-09-01T22:00:00.000Z`), che `matchDayKey` rilegge nel fuso locale come previsto
+
+## 8. Rosa dalla Leaderboard e aggiunta giocatori
+
+- [x] 8.1 `mergeRoster()`: unione tra la rosa esposta dal foglio e i nomi presenti nel match log, con fallback al solo match log se l'endpoint non manda `players`
+- [x] 8.2 Separare `players` (rosa, per le tendine) da `activeRoster` (chi ha giocato, per classifica/colori/grafici), con `refreshActiveRoster()` invocato da ogni render che lo usa
+- [x] 8.3 Elencare sotto le stat card gli iscritti in attesa della prima partita
+- [x] 8.4 Modale "Nuovo Giocatore" con validazione su nome vuoto e duplicati (case-insensitive) e POST `{ action: "addPlayer", nome }`
+- [x] 8.5 Pulsante sempre visibile ma inerte finche' l'endpoint non espone la rosa: apre un messaggio che spiega come aggiornare lo script, invece di inviare una POST che il vecchio script scriverebbe come partita
+- [x] 8.6 `apps-script/Code.gs`: doGet con `players` dalla tab Leaderboard, doPost con branch su `action`, colonne trovate per intestazione, LockService sulle scritture
+
+## 9. Carosello e nuovi andamenti
+
+- [x] 9.1 `renderLineChart()` condiviso dai tre andamenti (classifica, Elo, win rate), con asse Y configurabile
+- [x] 9.2 `snapshot()` per giornata con copie di rating e win rate cumulato
+- [x] 9.3 `renderEloHistory()` e `renderWinRateHistory()`, con scala "gradevole" per l'asse Elo
+- [x] 9.4 `spreadLabels()`: etichette distanziate di almeno 12px con trattino di collegamento — su asse continuo i nomi si sovrapponevano
+- [x] 9.5 `renderStackedPerDay()` condiviso da presenze e vittorie per giorno, cosi' la card "Partite" ha grafici della stessa forma
+- [x] 9.6 Due caroselli indipendenti (uno per famiglia), impilati, con frecce, puntini, swipe e conservazione del grafico visibile attraverso l'auto-refresh
+- [x] 9.7 `wrapIndex()`: i caroselli girano in tondo, nessuna freccia disabilitata; i salti non adiacenti non vengono animati
+- [x] 9.8 Trascinamento col puntatore (snap disattivato durante il trascinamento, aggancio al grafico piu' vicino al rilascio, soglia anti-click)
+- [x] 9.9 `niceTicks()`: l'ultima tacca supera il massimo, o la serie piu' alta finiva disegnata fuori dal grafico
+- [x] 9.10 `.chart-group` senza il pannello ereditato da `section`, e un ridisegno correttivo quando la comparsa della barra di scorrimento cambia la larghezza misurata
+
+## 10. Filtro dalla legenda
+
+- [x] 10a.1 `hiddenPlayers` fuori dal DOM, cosi' il filtro sopravvive alla ricostruzione dell'HTML a ogni refresh
+- [x] 10a.2 Voci di legenda come `<button aria-pressed>`, ripulite dallo stile globale dei pulsanti, spente con testo barrato e pastiglia vuota
+- [x] 10a.3 Filtro applicato a linee, segmenti impilati (totali inclusi) e dominio dell'asse ELO
+- [x] 10a.4 Messaggio dedicato quando sono tutti spenti
+
+## 11. Verifica
+
+- [x] 11.1 40 asserzioni sulla logica di pagina (Elo, permanenza, rosa, grafici, carosello)
+- [x] 11.2 Etichette degli andamenti mai a meno di 12px l'una dall'altra, misurato sui dati reali del foglio
+- [x] 11.3 Caroselli guidati via DevTools Protocol: frecce, puntini, giro completo in entrambi i versi, trascinamento, click fermo, indipendenza tra i due e sopravvivenza all'auto-refresh
+- [x] 11.6 Dominio degli assi verificato sui dati reali: tutti i punti dentro l'area del grafico
+- [x] 11.4 Rosa: iscritto senza partite fuori da classifica e grafici ma selezionabile; giocatore solo nel match log non perso
+- [ ] 11.5 Verificare `apps-script/Code.gs` sul foglio reale dopo il deploy: rosa letta dalla Leaderboard, aggiunta giocatore, inserimento partita ancora corretto

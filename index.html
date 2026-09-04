@@ -187,16 +187,44 @@
     }
 
     /* Nuova partita: pulsante + modale */
+    /* "Nuova Partita" resta l'azione principale e si prende lo spazio; aggiungere
+       un giocatore capita una volta ogni tanto, quindi sta accanto in secondario. */
+    .actions {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+
     .btn-new-match {
       background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%);
       color: var(--bg-void);
       border: none;
-      width: 100%;
+      flex: 1;
       padding: 1rem;
       font-size: 1rem;
       font-weight: 700;
-      margin-bottom: 1.5rem;
       box-shadow: 0 0 16px rgba(255, 46, 151, 0.35);
+    }
+
+    .btn-add-player {
+      flex-shrink: 0;
+      padding: 1rem 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .field-error {
+      color: var(--neon-pink);
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    .stats-waiting {
+      grid-column: 1 / -1;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
     }
 
     .btn-new-match:hover {
@@ -506,6 +534,111 @@
       text-shadow: 0 0 8px rgba(0, 229, 255, 0.45);
     }
 
+    /* Carosello dei grafici */
+    .carousel-track {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      /* Lo scorrimento morbido si chiede esplicitamente in JS: qui renderebbe
+         animato anche il ripristino della posizione dopo ogni refresh. */
+      scroll-behavior: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .carousel-track::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Affordance del trascinamento col mouse */
+    .carousel-track {
+      cursor: grab;
+    }
+
+    .carousel-track.dragging {
+      cursor: grabbing;
+      /* Lo snap "mandatory" riaggancerebbe a ogni pixel trascinato */
+      scroll-snap-type: none;
+      /* Senza, il trascinamento sopra le etichette le seleziona invece di
+         muovere il carosello. */
+      user-select: none;
+    }
+
+    .carousel-card {
+      flex: 0 0 100%;
+      min-width: 0;
+      scroll-snap-align: start;
+    }
+
+    /* Una card contiene un solo grafico: il margine di coda servirebbe a
+       separarlo dal successivo, che qui non c'e' — lascerebbe solo un vuoto
+       prima delle frecce. */
+    .carousel-card .chart-figure {
+      margin-bottom: 0;
+    }
+
+    /* Le due famiglie stanno una sopra l'altra: sono letture diverse, non
+       alternative fra cui scegliere. Dentro ciascuna si scorre tra i grafici.
+       Il gruppo e' un <section>, quindi erediterebbe il pannello con padding
+       di 1.5rem: cosi' le card sarebbero piu' strette di #charts, che e' la
+       larghezza su cui gli SVG vengono generati, e tutte le etichette si
+       rimpicciolirebbero per lo scaling. Qui il pannello viene annullato. */
+    .chart-group {
+      background: none;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .chart-group + .chart-group {
+      margin-top: 1.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(0, 229, 255, 0.15);
+    }
+
+    .group-title {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      color: var(--neon-pink);
+      text-shadow: 0 0 6px rgba(255, 46, 151, 0.4);
+      margin-bottom: 0.75rem;
+    }
+
+    .carousel-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .carousel-arrow {
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0.3rem 0.7rem;
+    }
+
+    .carousel-dots {
+      display: flex;
+      gap: 0.45rem;
+    }
+
+    .carousel-dot {
+      width: 9px;
+      height: 9px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--neon-cyan);
+      background: transparent;
+    }
+
+    .carousel-dot.active {
+      background: var(--neon-cyan);
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.7);
+    }
+
     /* Grafici */
     .chart-legend {
       display: flex;
@@ -514,19 +647,47 @@
       margin-bottom: 1.25rem;
     }
 
+    /* Voci di legenda = filtro. Sono <button>, quindi vanno ripulite dallo
+       stile globale dei pulsanti (fondo e bordo ciano), che qui coprirebbe il
+       colore della serie. */
     .legend-item {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
       font-size: 0.85rem;
+      font-family: inherit;
       color: var(--text-primary);
+      background: transparent;
+      border: 0;
+      border-radius: 5px;
+      padding: 0.15rem 0.3rem;
+      cursor: pointer;
+    }
+
+    .legend-item:hover {
+      background: rgba(255, 255, 255, 0.07);
+      box-shadow: none;
+    }
+
+    /* Spento: testo attenuato e pastiglia vuota col solo contorno del colore,
+       cosi' si vede ancora di chi si tratta e come riaccenderlo. */
+    .legend-item[aria-pressed="false"] {
+      color: var(--text-muted);
+      text-decoration: line-through;
+      opacity: 0.65;
     }
 
     .legend-swatch {
       width: 12px;
       height: 12px;
       border-radius: 3px;
+      border: 1px solid transparent;
       flex-shrink: 0;
+    }
+
+    /* Aggiunta giocatori in attesa che il foglio esponga la rosa */
+    .btn-add-player.needs-setup {
+      opacity: 0.6;
     }
 
     .chart-figure {
@@ -773,6 +934,13 @@
         font-size: 0.68rem;
       }
 
+      /* Su schermo stretto il secondario si riduce all'icona, o manderebbe
+         "Nuova Partita" a capo per fare spazio alla propria etichetta.
+         L'aria-label sul pulsante regge il significato. */
+      .btn-label {
+        display: none;
+      }
+
       .chart-legend {
         gap: 0.35rem 0.75rem;
       }
@@ -812,7 +980,12 @@
   <div class="container">
     <div id="message"></div>
 
-    <button id="openFormBtn" class="btn-new-match">➕ Nuova Partita</button>
+    <div class="actions">
+      <button id="openFormBtn" class="btn-new-match">➕ Nuova Partita</button>
+      <!-- Resta nascosto finche' il foglio non espone la rosa: vedi
+           updateAddPlayerAvailability. -->
+      <button id="openPlayerBtn" class="btn-add-player" aria-label="Aggiungi giocatore">👤<span class="btn-label"> Aggiungi Giocatore</span></button>
+    </div>
 
     <!-- Modale nuova partita -->
     <div id="matchModal" class="modal-overlay" hidden>
@@ -850,6 +1023,29 @@
           </div>
 
           <button type="submit" class="btn-submit">Salva Partita</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modale aggiunta giocatore -->
+    <div id="playerModal" class="modal-overlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="playerModalTitle">
+        <div class="modal-header">
+          <h2 id="playerModalTitle">👤 Nuovo Giocatore</h2>
+          <button type="button" id="closePlayerBtn" class="modal-close" aria-label="Chiudi">✕</button>
+        </div>
+
+        <form id="playerForm">
+          <p class="modal-hint">Il nome viene aggiunto alla Leaderboard del foglio e diventa subito selezionabile in una nuova partita.</p>
+
+          <div class="player-field">
+            <label for="newPlayerName">Nome</label>
+            <input type="text" id="newPlayerName" maxlength="60" autocomplete="off" required>
+          </div>
+
+          <p id="playerFormError" class="field-error" hidden></p>
+
+          <button type="submit" class="btn-submit">Aggiungi Giocatore</button>
         </form>
       </div>
     </div>
@@ -901,10 +1097,24 @@
 
   <script>
     // CONFIG - MODIFICA QUESTO CON IL TUO URL
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrHf77BY5fpdT7jUr24ZOsAt8W61B8BZv59IhzemVVxpG5aalhTLbMoK8MKpAcsJ3iyg/exec'; // Sostituisci con il tuo
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyf2n1QhX6mU-ENMIfb2DY1Djc0sEfpcXnDhGecBEFL00aPmcPvP6tGeHc6sCCIRgLbMQ/exec'; // Sostituisci con il tuo
 
     let allMatches = [];
+
+    // `players` e' la rosa: chi puo' essere scelto in una nuova partita, letta
+    // dalla Leaderboard del foglio. `activeRoster` e' il sottoinsieme che ha
+    // almeno una partita giocata, ed e' quello che alimenta classifica, colori
+    // e grafici — un iscritto senza partite non ha un rating da mostrare, ne'
+    // una linea da disegnare, ma deve comunque comparire nelle tendine.
     let players = [];
+    let activeRoster = [];
+
+    // Il foglio espone la rosa solo se l'Apps Script e' quello aggiornato. Fino
+    // ad allora la rosa si deduce dal match log e l'aggiunta giocatori resta
+    // spenta: una POST che il vecchio script non riconosce finirebbe scritta
+    // come se fosse una partita.
+    let backendHasRoster = false;
+
     let renderedPlayers = null;
     let loadedOnce = false;
     let latestLoad = 0;
@@ -964,12 +1174,9 @@
           failStreak = 0;
           allMatches = data.matches || [];
 
-          const found = new Set();
-          allMatches.forEach(match => {
-            found.add(match.giocatore1);
-            found.add(match.giocatore2);
-          });
-          players = Array.from(found).sort();
+          backendHasRoster = Array.isArray(data.players);
+          players = mergeRoster(backendHasRoster ? data.players : []);
+          updateAddPlayerAvailability();
 
           loadedOnce = true;
           updateUI();
@@ -1050,6 +1257,38 @@
     function esc(value) {
       const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
       return String(value).replace(/[&<>"]/g, ch => map[ch]);
+    }
+
+    // Unione tra la rosa della Leaderboard e chi compare nel match log. Il
+    // secondo insieme non e' ridondante: un giocatore cancellato dalla
+    // Leaderboard, o aggiunto a mano al log, sparirebbe dalle statistiche
+    // portandosi via partite che sono comunque state giocate.
+    function mergeRoster(sheetRoster) {
+      const found = new Set(sheetRoster);
+
+      allMatches.forEach(match => {
+        found.add(match.giocatore1);
+        found.add(match.giocatore2);
+      });
+
+      return Array.from(found)
+        .filter(name => typeof name === 'string' && name.trim())
+        .sort();
+    }
+
+    // Ricalcola chi ha almeno una partita. E' stato derivato, quindi lo
+    // ricalcola ogni render che lo usa invece di fidarsi di essere stato
+    // chiamato dopo qualcun altro: una dipendenza d'ordine invisibile qui
+    // significherebbe una classifica vuota, senza errori a dirlo.
+    function refreshActiveRoster() {
+      const hasPlayed = new Set();
+
+      allMatches.forEach(match => {
+        hasPlayed.add(match.giocatore1);
+        hasPlayed.add(match.giocatore2);
+      });
+
+      activeRoster = players.filter(player => hasPlayed.has(player));
     }
 
     // Calcola statistiche per giocatore
@@ -1178,6 +1417,23 @@
               || played.get(b) - played.get(a)
               || a.localeCompare(b)
             );
+        },
+
+        // Fotografia della giornata. Le mappe vanno COPIATE: sono le stesse che
+        // il replay continua a modificare, e tenerne il riferimento darebbe a
+        // ogni giornata i valori dell'ultima.
+        snapshot() {
+          const winRate = new Map();
+
+          played.forEach((count, player) => {
+            if (count > 0) winRate.set(player, (wins.get(player) / count) * 100);
+          });
+
+          return {
+            ranking: this.ranking(),
+            ratings: new Map(ratings),
+            winRate
+          };
         }
       };
     }
@@ -1193,9 +1449,11 @@
 
     // Classifica completa, ordinata come sopra.
     function rankedPlayers() {
+      refreshActiveRoster();
+
       const ratings = computeRatings();
 
-      return players
+      return activeRoster
         .map(player => ({ player, rating: ratings.get(player), ...getPlayerStats(player) }))
         .sort((a, b) =>
           b.rating - a.rating
@@ -1216,14 +1474,14 @@
         // Cambio giornata: prima si fotografa la classifica come si e' chiusa
         // il giorno precedente, poi si applica la partita nuova.
         if (currentDay !== null && day !== currentDay) {
-          byDay.push({ day: currentDay, ranking: standings.ranking() });
+          byDay.push({ day: currentDay, ...standings.snapshot() });
         }
         currentDay = day;
         standings.apply(match);
       });
 
       if (currentDay !== null) {
-        byDay.push({ day: currentDay, ranking: standings.ranking() });
+        byDay.push({ day: currentDay, ...standings.snapshot() });
       }
 
       return byDay;
@@ -1254,6 +1512,8 @@
 
     // Podio dei 3 rating piu' alti, con la permanenza in vetta sul primo posto.
     function updatePodium() {
+      refreshActiveRoster();
+
       const podiumDiv = document.getElementById('podium');
       const ranked = rankedPlayers().slice(0, 3);
 
@@ -1293,6 +1553,8 @@
 
     // Aggiorna le statistiche
     function updateStats() {
+      refreshActiveRoster();
+
       const statsDiv = document.getElementById('stats');
 
       if (players.length === 0) {
@@ -1306,7 +1568,7 @@
       // ordine totale, quindi l'auto-refresh non le fa ballare.
       // Record e etichetta stanno in un contenitore comune: su mobile la card
       // diventa una riga e i due devono spostarsi come un blocco solo.
-      statsDiv.innerHTML = rankedPlayers().map((r, i) => `
+      const cards = rankedPlayers().map((r, i) => `
           <div class="stat-card" title="${esc(r.player)}">
             <div class="stat-rank">#${i + 1}</div>
             <div class="stat-player">${esc(r.player)}</div>
@@ -1317,6 +1579,16 @@
             <div class="stat-rating">${Math.round(r.rating)} Elo</div>
           </div>
         `).join('');
+
+      // Chi e' in rosa ma non ha ancora giocato non entra in classifica — un
+      // rating di partenza non e' un risultato — ma va detto che c'e', o
+      // sembrerebbe che l'inserimento non abbia funzionato.
+      const waiting = players.filter(p => !activeRoster.includes(p));
+      const waitingLine = waiting.length
+        ? `<p class="stats-waiting">In attesa della prima partita: ${waiting.map(esc).join(', ')}</p>`
+        : '';
+
+      statsDiv.innerHTML = cards + waitingLine;
     }
 
     // Il foglio restituisce le date come timestamp ISO in UTC: la mezzanotte
@@ -1390,10 +1662,19 @@
     // adiacente peggiore), separazione a vista normale (19.3) e contrasto
     // (tutti >= 3:1). E' l'ORDINE a essere stato verificato, non l'insieme:
     // rimescolare gli slot invalida la garanzia.
+    // Gli ultimi due slot sono stati aggiunti IN CODA di proposito: riordinare
+    // la sequenza cambierebbe il colore di tutti i giocatori gia' in classifica.
     const SERIES_COLORS = [
-      '#3987e5', '#d95926', '#199e70', '#c98500',
-      '#d55181', '#008300', '#9085e9', '#e66767'
+      '#3987e5', '#d95926', '#199e70', '#c98500', '#d55181',
+      '#008300', '#9085e9', '#e66767', '#0f9bb0', '#b07a3a'
     ];
+
+    // Tratteggi come secondo canale d'identita' accanto al colore. In un grafico
+    // a linee ogni serie si confronta con TUTTE le altre, non solo con la
+    // vicina, e nessun insieme di dieci colori regge quel confronto: su una
+    // carenza cromatica alcune coppie diventano indistinguibili. Con etichetta
+    // diretta e tratteggio il colore smette di essere l'unico appiglio.
+    const SERIES_DASH = ['', '6 3', '1 3', '10 3 2 3', '4 2', '8 2 2 2'];
 
     // Oltre l'ottavo giocatore i colori non si riciclano: due serie dello stesso
     // colore ingannano piu' di quanto un colore in meno non informi. Chi eccede
@@ -1408,8 +1689,29 @@
     // all'indice alfabetico resta lo stesso in tutti i grafici e tra un refresh
     // e l'altro.
     function playerColor(name) {
-      const index = players.indexOf(name);
+      const index = activeRoster.indexOf(name);
       return index >= 0 && index < SERIES_COLORS.length ? SERIES_COLORS[index] : SERIES_OVERFLOW;
+    }
+
+    // Giocatori spenti dalla legenda. Vive fuori dal render perche' l'HTML dei
+    // grafici viene ricostruito a ogni refresh: tenerlo nel DOM significherebbe
+    // perdere il filtro ogni 10 secondi.
+    const hiddenPlayers = new Set();
+
+    function visiblePlayers() {
+      return activeRoster.filter(player => !hiddenPlayers.has(player));
+    }
+
+    function togglePlayer(name) {
+      if (hiddenPlayers.has(name)) hiddenPlayers.delete(name);
+      else hiddenPlayers.add(name);
+
+      updateCharts();
+    }
+
+    function playerDash(name) {
+      const index = activeRoster.indexOf(name);
+      return index < 0 ? '' : SERIES_DASH[index % SERIES_DASH.length];
     }
 
     function formatDayLabel(key) {
@@ -1481,78 +1783,154 @@
 
     // Legenda condivisa dai grafici che usano il colore per identificare i
     // giocatori: con due o piu' serie l'identita' non puo' stare nel solo colore.
+    // E' anche il filtro: ogni voce accende e spegne il proprio giocatore, e
+    // resta elencata anche da spenta, o non ci sarebbe modo di riaccenderla.
     function renderLegend() {
-      const items = players.map(player => `
-        <span class="legend-item">
-          <span class="legend-swatch" style="background: ${playerColor(player)}"></span>${esc(player)}
-        </span>
-      `).join('');
+      const items = activeRoster.map(player => {
+        const on = !hiddenPlayers.has(player);
+        const color = playerColor(player);
+
+        return `<button type="button" class="legend-item" data-player="${esc(player)}"
+          aria-pressed="${on}" title="${on ? 'Nascondi' : 'Mostra'} ${esc(player)}">
+          <span class="legend-swatch" style="background: ${on ? color : 'transparent'}; border-color: ${color}"></span>${esc(player)}
+        </button>`;
+      }).join('');
 
       return `<div class="chart-legend">${items}</div>`;
     }
 
-    // Andamento della POSIZIONE in classifica, non del rating: la domanda a cui
-    // il grafico risponde e' "chi sta salendo", e con i rating grezzi le linee
-    // di giocatori vicini si sovrappongono fino a non distinguersi piu'.
-    function renderRankHistory(width, byDay) {
-      const title = 'Andamento classifica';
+    // Scala "gradevole" per un asse continuo: passi da 1/2/2.5/5 per decade, in
+    // modo che le etichette siano numeri che una persona legge volentieri (900,
+    // 950, 1000) invece dei minimi e massimi grezzi della serie.
+    function niceTicks(min, max, wanted = 5) {
+      if (!isFinite(min) || !isFinite(max)) return [{ value: 0, label: '0' }];
+      if (min === max) { min -= 1; max += 1; }
+
+      const raw = (max - min) / Math.max(1, wanted - 1);
+      const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+      const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+
+      // L'ultima tacca va OLTRE il massimo, non fino al massimo: sono le tacche
+      // a definire il dominio dell'asse, quindi fermarsi all'ultimo multiplo
+      // sotto il massimo lascerebbe il valore piu' alto fuori dal grafico.
+      const first = Math.floor(min / step) * step;
+      const last = Math.ceil(max / step) * step;
+
+      const out = [];
+      for (let v = first; v <= last + step / 1000; v += step) {
+        // I passi da 2.5 accumulano errore in binario: senza arrotondare si
+        // ottengono etichette tipo "1049.9999999".
+        out.push(Number(v.toFixed(6)));
+      }
+      return out;
+    }
+
+    // Allontana le etichette che si sovrappongono, mantenendone l'ordine
+    // verticale. Sulla classifica non servirebbe (le posizioni sono tutte
+    // diverse), ma su Elo e win rate due giocatori possono valere quasi lo
+    // stesso e i nomi finirebbero stampati uno sull'altro.
+    // Due passate: la prima spinge in basso chi e' troppo vicino al precedente,
+    // la seconda recupera verso l'alto se la prima ha sforato il fondo.
+    function spreadLabels(ys, minGap, minY, maxY) {
+      const order = ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y);
+
+      let prev = minY - minGap;
+      order.forEach(o => {
+        o.y = Math.max(o.y, prev + minGap);
+        prev = o.y;
+      });
+
+      let next = maxY + minGap;
+      for (let k = order.length - 1; k >= 0; k--) {
+        order[k].y = Math.min(order[k].y, next - minGap);
+        next = order[k].y;
+      }
+
+      const out = new Array(ys.length);
+      order.forEach(o => { out[o.i] = o.y; });
+      return out;
+    }
+
+    // Struttura comune dei tre andamenti (classifica, Elo, win rate): cambia
+    // solo cosa si legge sull'asse Y. Tenerli un'unica funzione garantisce che
+    // restino confrontabili a vista — stessa griglia, stessi colori, stesse
+    // etichette dirette — invece di divergere a ogni ritocco.
+    function renderLineChart(config) {
+      const { title, width, byDay, valueOf, ticks, invert, plotH, formatValue, note } = config;
 
       if (byDay.length < 2) {
         return chartFigure(title, chartNote('Servono almeno due giornate di partite per disegnare un andamento.'));
       }
 
-      // Oltre gli slot della palette le linee si accavallano e i colori
-      // finirebbero comunque: il grafico si ferma ai primi in classifica.
-      const shown = rankedPlayers().slice(0, SERIES_COLORS.length).map(r => r.player);
-      const positions = players.length;
+      const shown = visiblePlayers();
+      if (shown.length === 0) {
+        return chartFigure(title, chartNote(activeRoster.length
+          ? 'Nessun giocatore selezionato: riaccendine uno dalla legenda.'
+          : 'Nessun giocatore con partite giocate.'));
+      }
 
-      // Le etichette dirette hanno senso finche' restano poche: oltre, il posto
-      // che occupano vale piu' del grafico che resta.
-      const direct = shown.length <= 4;
-      const longest = shown.reduce((max, name) => Math.max(max, name.length), 0);
+      const longestName = shown.reduce((max, name) => Math.max(max, name.length), 0);
+      const longestTick = ticks.reduce((max, t) => Math.max(max, t.label.length), 0);
 
       const padTop = 10;
       const padBottom = 26;
-      const padLeft = 26;
-      const padRight = direct ? Math.min(84, longest * CHAR_W + 12) : 8;
+      const padLeft = Math.max(22, longestTick * 6 + 12);
+      const padRight = Math.min(92, longestName * CHAR_W + 12);
 
-      const step = 26;
       const plotW = Math.max(40, width - padLeft - padRight);
-      const plotH = Math.max(step, (positions - 1) * step);
+
+      const values = ticks.map(t => t.value);
+      const minV = Math.min(...values);
+      const maxV = Math.max(...values);
+      const span = maxV - minV || 1;
+
       const height = padTop + plotH + padBottom;
 
       const xDay = i => padLeft + (i * plotW) / (byDay.length - 1);
-      const yPos = pos => padTop + (positions > 1 ? ((pos - 1) * plotH) / (positions - 1) : plotH / 2);
+      // `invert` serve alla classifica, dove il valore piu' basso (1) va in alto.
+      const yOf = v => padTop + (invert ? (v - minV) / span : 1 - (v - minV) / span) * plotH;
 
-      const grid = Array.from({ length: positions }, (_, k) => {
-        const y = yPos(k + 1).toFixed(1);
-        return `<line x1="${padLeft}" y1="${y}" x2="${padLeft + plotW}" y2="${y}"
-            stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-          <text x="${padLeft - 8}" y="${(yPos(k + 1) + 4).toFixed(1)}" text-anchor="end"
-            font-size="11" style="fill: var(--text-muted)">${k + 1}</text>`;
-      }).join('');
+      const grid = ticks.map(t => `
+        <line x1="${padLeft}" y1="${yOf(t.value).toFixed(1)}" x2="${padLeft + plotW}" y2="${yOf(t.value).toFixed(1)}"
+          stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <text x="${padLeft - 8}" y="${(yOf(t.value) + 4).toFixed(1)}" text-anchor="end"
+          font-size="11" style="fill: var(--text-muted)">${t.label}</text>
+      `).join('');
 
       // Con molte giornate i pallini si toccano fino a diventare una linea
-      // spessa: sopra la ventina resta solo l'ultimo, che serve da appiglio per
-      // l'etichetta e per il tooltip sulla posizione attuale.
+      // spessa: sopra la ventina resta solo l'ultimo, che regge l'etichetta.
       const showDots = byDay.length <= 20;
 
-      const series = shown.map(player => {
+      // I punti si calcolano tutti prima di disegnare: la posizione verticale
+      // delle etichette dipende da dove finiscono TUTTE le linee, non solo la
+      // propria.
+      const drawn = shown.map(player => {
         const points = [];
 
         byDay.forEach((entry, i) => {
-          const pos = entry.ranking.indexOf(player);
-          if (pos >= 0) points.push({ x: xDay(i), y: yPos(pos + 1), day: entry.day, pos: pos + 1 });
+          const v = valueOf(entry, player);
+          if (v !== null && v !== undefined) {
+            points.push({ x: xDay(i), y: yOf(v), day: entry.day, value: v });
+          }
         });
 
-        if (points.length === 0) return '';
+        return { player, points };
+      }).filter(s => s.points.length > 0);
 
+      const labelYs = spreadLabels(
+        drawn.map(s => s.points[s.points.length - 1].y),
+        12, padTop + 4, padTop + plotH
+      );
+
+      const series = drawn.map(({ player, points }, seriesIndex) => {
         const color = playerColor(player);
+        const dash = playerDash(player);
         const last = points[points.length - 1];
 
         const line = points.length > 1
           ? `<polyline points="${points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"
               fill="none" stroke="${color}" stroke-width="2"
+              ${dash ? `stroke-dasharray="${dash}"` : ''}
               stroke-linecap="round" stroke-linejoin="round"/>`
           : '';
 
@@ -1561,100 +1939,160 @@
         const dots = points
           .filter(p => showDots || p === last)
           .map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${color}"
-              style="stroke: var(--bg-panel)" stroke-width="2"><title>${esc(player)} — ${formatDayLabel(p.day)}: ${p.pos}° posto</title></circle>`)
+              style="stroke: var(--bg-panel)" stroke-width="2"><title>${esc(player)} — ${formatDayLabel(p.day)}: ${formatValue(p.value)}</title></circle>`)
           .join('');
 
-        // Le posizioni sono uniche per definizione, quindi due etichette dirette
-        // non possono finire sulla stessa altezza.
-        const label = direct
-          ? `<text x="${(padLeft + plotW + 7).toFixed(1)}" y="${(last.y + 4).toFixed(1)}"
-              font-size="11" style="fill: var(--text-primary)">${esc(fitLabel(player, padRight - 12))}</text>`
+        // L'etichetta e' l'identita' vera della linea: il colore da solo non
+        // regge il confronto tra tutte le coppie (vedi design.md).
+        const labelY = labelYs[seriesIndex];
+        const labelX = padLeft + plotW + 7;
+
+        // Se l'etichetta e' stata spostata per non accavallarsi, un trattino la
+        // ricollega al suo punto: senza, a due nomi vicini non si saprebbe piu'
+        // quale linea appartiene a quale.
+        const leader = Math.abs(labelY - last.y) > 3
+          ? `<line x1="${(last.x + 5).toFixed(1)}" y1="${last.y.toFixed(1)}"
+              x2="${(labelX - 2).toFixed(1)}" y2="${labelY.toFixed(1)}"
+              stroke="${color}" stroke-width="1" opacity="0.5"/>`
           : '';
 
-        return line + dots + label;
+        const label = `<text x="${labelX.toFixed(1)}" y="${(labelY + 4).toFixed(1)}"
+            font-size="11" style="fill: var(--text-primary)">${esc(fitLabel(player, padRight - 12))}<title>${esc(player)}</title></text>`;
+
+        return line + leader + dots + label;
       }).join('');
 
-      const labels = axisTicks(byDay.length, plotW).map(i => `
+      const dayLabels = axisTicks(byDay.length, plotW).map(i => `
         <text x="${xDay(i).toFixed(1)}" y="${height - 8}" font-size="11"
           text-anchor="${tickAnchor(i, byDay.length)}"
           style="fill: var(--text-muted)">${formatDayLabel(byDay[i].day)}</text>
       `).join('');
 
       return chartFigure(title,
-        svgWrap(width, height, 'Posizione in classifica di ogni giocatore giorno per giorno', grid + series + labels)
-        + chartNote('La prima posizione è in alto.'));
+        svgWrap(width, height, `${title}: una linea per giocatore, giorno per giorno`, grid + series + dayLabels)
+        + (note ? chartNote(note) : ''));
+    }
+
+    // Andamento della POSIZIONE, non del rating: risponde a "chi sta salendo".
+    function renderRankHistory(width, byDay) {
+      const positions = activeRoster.length;
+
+      return renderLineChart({
+        title: 'Andamento classifica',
+        width,
+        byDay,
+        valueOf: (entry, player) => {
+          const i = entry.ranking.indexOf(player);
+          return i >= 0 ? i + 1 : null;
+        },
+        ticks: Array.from({ length: positions }, (_, k) => ({ value: k + 1, label: String(k + 1) })),
+        invert: true,
+        plotH: Math.max(26, (positions - 1) * 26),
+        formatValue: v => `${v}° posto`,
+        note: 'La prima posizione è in alto.'
+      });
+    }
+
+    // Andamento del RATING: dice di quanto si e' saliti, non solo che si e'
+    // saliti — due informazioni diverse, e per questo due grafici diversi.
+    function renderEloHistory(width, byDay) {
+      // La scala si adatta ai soli giocatori accesi: nascondere chi sta in cima
+      // deve liberare spazio per gli altri, non lasciare mezzo grafico vuoto.
+      const visible = visiblePlayers();
+      const seen = [];
+
+      byDay.forEach(entry => {
+        entry.ranking.forEach(player => {
+          if (visible.includes(player)) seen.push(entry.ratings.get(player));
+        });
+      });
+
+      if (seen.length === 0) {
+        return chartFigure('Andamento ELO', chartNote('Nessun rating da mostrare.'));
+      }
+
+      const ticks = niceTicks(Math.min(...seen), Math.max(...seen))
+        .map(v => ({ value: v, label: String(Math.round(v)) }));
+
+      return renderLineChart({
+        title: 'Andamento ELO',
+        width,
+        byDay,
+        valueOf: (entry, player) => (entry.ranking.includes(player) ? entry.ratings.get(player) : null),
+        ticks,
+        invert: false,
+        plotH: 170,
+        formatValue: v => `${Math.round(v)} Elo`,
+        note: 'Punti guadagnati e persi, non solo la posizione.'
+      });
+    }
+
+    // Percentuale di vittorie cumulata: quella che l'Elo ha sostituito come
+    // criterio di classifica, ma che come andamento resta una lettura sensata.
+    function renderWinRateHistory(width, byDay) {
+      return renderLineChart({
+        title: 'Andamento win rate',
+        width,
+        byDay,
+        valueOf: (entry, player) => {
+          const v = entry.winRate.get(player);
+          return v === undefined ? null : v;
+        },
+        ticks: [0, 25, 50, 75, 100].map(v => ({ value: v, label: `${v}%` })),
+        invert: false,
+        plotH: 150,
+        formatValue: v => `${v.toFixed(0)}% vittorie`,
+        note: 'Percentuale calcolata su tutte le partite giocate fino a quel giorno.'
+      });
     }
 
     // Partite giocate: barre orizzontali con il nome accanto, quindi l'identita'
     // non dipende dal colore ed e' leggibile anche oltre gli slot della palette.
-    function renderGamesPlayed(width) {
-      const rows = players
-        .map(player => ({ player, played: getPlayerStats(player).played }))
-        .sort((a, b) => b.played - a.played || a.player.localeCompare(b.player));
-
-      const barH = 18;
-      const gap = 10;
-      const padY = 6;
-      const longest = rows.reduce((max, r) => Math.max(max, r.player.length), 0);
-      const labelW = Math.min(96, longest * CHAR_W + 4);
-      const valueW = 34;
-      const plotW = Math.max(20, width - labelW - valueW - 8);
-      const max = Math.max(...rows.map(r => r.played));
-      const height = padY * 2 + rows.length * barH + Math.max(0, rows.length - 1) * gap;
-
-      const bars = rows.map((r, i) => {
-        const y = padY + i * (barH + gap);
-        const w = Math.max(3, (r.played / max) * plotW);
-        const baseline = labelW + 8;
-
-        return `
-          <text x="0" y="${y + barH / 2 + 4}" font-size="12"
-            style="fill: var(--text-primary)">${esc(fitLabel(r.player, labelW))}</text>
-          <path d="${hBarPath(baseline, y, w, barH, 4)}" fill="${playerColor(r.player)}"><title>${esc(r.player)}: ${r.played} partite</title></path>
-          <text x="${(baseline + w + 6).toFixed(1)}" y="${y + barH / 2 + 4}" font-size="12"
-            style="fill: var(--text-muted)">${r.played}</text>
-        `;
-      }).join('');
-
-      return chartFigure('Partite giocate',
-        svgWrap(width, height, 'Numero di partite giocate da ogni giocatore', bars));
-    }
-
-    // Vittorie per giorno: l'altezza della barra e' quanto si e' giocato quel
-    // giorno, i segmenti dicono chi ha vinto. Le due letture insieme.
-    function renderWinsPerDay(width) {
-      const title = 'Vittorie per giorno';
-
-      // Solo le giornate in cui si e' giocato: le barre a zero dei giorni vuoti
-      // svuoterebbero il grafico dopo ogni pausa lunga.
+    // Conta per giornata quanto ciascun giocatore ha fatto qualcosa: `pick`
+    // decide cosa, restituendo i nomi da accreditare per quella partita. Le
+    // giornate senza partite non entrano — barre a zero dopo una pausa lunga
+    // svuoterebbero il grafico invece di raccontarla.
+    function tallyPerDay(pick) {
       const index = new Map();
       const days = [];
 
       chronologicalMatches().forEach(({ match, day }) => {
-        if (match.vincitore !== match.giocatore1 && match.vincitore !== match.giocatore2) return;
+        pick(match).forEach(name => {
+          // I nascosti non entrano nemmeno nei totali: la barra deve valere
+          // quello che mostra, o la scala mentirebbe sui segmenti visibili.
+          if (!name || hiddenPlayers.has(name)) return;
 
-        if (!index.has(day)) {
-          index.set(day, { day, winners: new Map(), total: 0 });
-          days.push(index.get(day));
-        }
+          if (!index.has(day)) {
+            index.set(day, { day, counts: new Map(), total: 0 });
+            days.push(index.get(day));
+          }
 
-        const entry = index.get(day);
-        entry.winners.set(match.vincitore, (entry.winners.get(match.vincitore) || 0) + 1);
-        entry.total++;
+          const entry = index.get(day);
+          entry.counts.set(name, (entry.counts.get(name) || 0) + 1);
+          entry.total++;
+        });
       });
 
-      if (days.length === 0) {
-        return chartFigure(title, chartNote('Nessuna partita con un vincitore riconoscibile.'));
-      }
+      return days;
+    }
+
+    // Barre verticali impilate per giornata. Presenze e vittorie usano la stessa
+    // funzione di proposito: sono lo stesso grafico letto due volte, e la
+    // seconda e' la prima filtrata da chi ha vinto — differenze di forma tra i
+    // due renderebbero il confronto piu' difficile invece che piu' ricco.
+    function renderStackedPerDay(config) {
+      const { title, width, days, unitLabel, note, emptyNote } = config;
+
+      if (days.length === 0) return chartFigure(title, chartNote(emptyNote));
 
       const padTop = 8;
       const padBottom = 24;
-      const padLeft = 24;
+      const max = Math.max(...days.map(d => d.total));
+      const padLeft = Math.max(22, String(max).length * 7 + 12);
       const plotW = Math.max(20, width - padLeft - 6);
       const plotH = 150;
       const height = padTop + plotH + padBottom;
 
-      const max = Math.max(...days.map(d => d.total));
       const unit = plotH / max;
       const slot = plotW / days.length;
       // 2px di respiro tra barre adiacenti, e un tetto alla larghezza: con due
@@ -1675,10 +2113,10 @@
         const x = padLeft + i * slot + (slot - barW) / 2;
 
         // Ordine di impilamento per indice del giocatore: e' lo stesso in tutte
-        // le giornate, quindi i segmenti non si scambiano di posto da una barra
-        // all'altra.
-        const segments = [...entry.winners.entries()]
-          .sort((a, b) => players.indexOf(a[0]) - players.indexOf(b[0]));
+        // le giornate e in tutti e due i grafici, quindi i segmenti non si
+        // scambiano di posto da una barra all'altra ne' da un grafico all'altro.
+        const segments = [...entry.counts.entries()]
+          .sort((a, b) => activeRoster.indexOf(a[0]) - activeRoster.indexOf(b[0]));
 
         let stacked = 0;
 
@@ -1686,9 +2124,9 @@
           const y = padTop + plotH - (stacked + count) * unit;
           stacked += count;
 
-          // Lo stacco tra un vincitore e l'altro lo fa lo sfondo, non una riga
-          // di bordo: il segmento si ritira di 2px dall'alto. Su un segmento
-          // gia' sottilissimo lo stacco si dimezza invece di mangiarselo.
+          // Lo stacco tra un segmento e l'altro lo fa lo sfondo, non una riga di
+          // bordo: il segmento si ritira di 2px dall'alto. Su un segmento gia'
+          // sottilissimo lo stacco si dimezza invece di mangiarselo.
           const full = count * unit;
           const gap = Math.min(2, full / 2);
           const segH = full - gap;
@@ -1696,7 +2134,7 @@
           // Solo il segmento in cima porta gli angoli arrotondati: quelli sotto
           // restano squadrati, o la barra sembrerebbe spezzata in tante barrette.
           const isTop = k === segments.length - 1;
-          const tooltip = `<title>${formatDayLabel(entry.day)} — ${esc(name)}: ${count} ${count === 1 ? 'vittoria' : 'vittorie'}</title>`;
+          const tooltip = `<title>${formatDayLabel(entry.day)} — ${esc(name)}: ${count} ${unitLabel(count)}</title>`;
           const fill = playerColor(name);
 
           if (isTop) {
@@ -1715,16 +2153,247 @@
       `).join('');
 
       return chartFigure(title,
-        svgWrap(width, height, 'Partite giocate per giornata, divise per vincitore', gridLines.join('') + bars + labels)
-        + chartNote('Altezza della barra: partite giocate quel giorno.'));
+        svgWrap(width, height, `${title}, per giornata e per giocatore`, gridLines.join('') + bars + labels)
+        + (note ? chartNote(note) : ''));
     }
 
-    // I grafici si dimensionano sulla larghezza reale del contenitore invece di
-    // usare un viewBox fisso: con un viewBox da 600 reso dentro 320px tutte le
-    // etichette si dimezzerebbero. Il rovescio e' che finche' la sezione e'
-    // hidden quella larghezza vale 0, quindi si disegna all'apertura della tab
-    // (vedi onTabShown) e al resize, non solo quando arrivano i dati.
-    function updateCharts() {
+    // Presenze: ogni partita accredita entrambi i giocatori, quindi il totale di
+    // una giornata e' il doppio delle partite giocate. E' voluto — la domanda e'
+    // "chi c'era", non "quante partite".
+    function renderPresencePerDay(width) {
+      return renderStackedPerDay({
+        title: 'Presenze per giorno',
+        width,
+        days: tallyPerDay(match => [match.giocatore1, match.giocatore2]),
+        unitLabel: count => (count === 1 ? 'partita' : 'partite'),
+        note: 'Ogni partita conta per entrambi i giocatori.',
+        emptyNote: 'Nessuna partita registrata.'
+      });
+    }
+
+    // Stesse barre, stessa scala, stessi colori: qui il segmento c'e' solo per
+    // chi quel giorno ha vinto.
+    function renderWinsPerDay(width) {
+      return renderStackedPerDay({
+        title: 'Vittorie per giorno',
+        width,
+        days: tallyPerDay(match =>
+          (match.vincitore === match.giocatore1 || match.vincitore === match.giocatore2)
+            ? [match.vincitore]
+            : []),
+        unitLabel: count => (count === 1 ? 'vittoria' : 'vittorie'),
+        note: 'Altezza della barra: partite vinte quel giorno.',
+        emptyNote: 'Nessuna partita con un vincitore riconoscibile.'
+      });
+    }
+
+    // Due caroselli distinti, uno per famiglia. Dentro un carosello si scorre da
+    // un grafico all'altro; le due famiglie restano una sopra l'altra, perche'
+    // sono letture diverse e non alternative fra cui scegliere. I grafici di uno
+    // stesso carosello sono tutti della stessa forma, cosi' scorrere da uno
+    // all'altro cambia il dato e non il modo di leggerlo.
+    const CHART_GROUPS = [
+      {
+        id: 'standing',
+        title: '🏆 Classifica',
+        charts: [
+          { title: 'Andamento classifica', render: (w, ctx) => renderRankHistory(w, ctx.byDay) },
+          { title: 'Andamento ELO', render: (w, ctx) => renderEloHistory(w, ctx.byDay) },
+          { title: 'Andamento win rate', render: (w, ctx) => renderWinRateHistory(w, ctx.byDay) }
+        ]
+      },
+      {
+        id: 'matches',
+        title: '🎮 Partite',
+        charts: [
+          { title: 'Presenze per giorno', render: (w) => renderPresencePerDay(w) },
+          { title: 'Vittorie per giorno', render: (w) => renderWinsPerDay(w) }
+        ]
+      }
+    ];
+
+    // Il grafico visibile di ciascun carosello sopravvive al refresh automatico:
+    // rigenerare l'HTML ogni 10 secondi riporterebbe l'utente al primo mentre
+    // ne sta guardando un altro.
+    const carouselCard = {};
+
+    // Il carosello e' un anello: dall'ultimo si torna al primo e viceversa,
+    // quindi le frecce non si spengono mai agli estremi. Il doppio modulo serve
+    // agli indici negativi, dove `%` in JS restituisce un resto negativo.
+    function wrapIndex(index, total) {
+      if (total <= 0) return 0;
+      return ((index % total) + total) % total;
+    }
+
+    function carouselRoot(groupId) {
+      return document.querySelector(`.carousel[data-group="${groupId}"]`);
+    }
+
+    function goToCard(groupId, index, smooth) {
+      const root = carouselRoot(groupId);
+      const group = CHART_GROUPS.find(g => g.id === groupId);
+      if (!root || !group) return;
+
+      const from = carouselCard[groupId] || 0;
+      const to = wrapIndex(index, group.charts.length);
+
+      carouselCard[groupId] = to;
+
+      const track = root.querySelector('.carousel-track');
+
+      // Un salto non adiacente (il giro dell'anello, o un puntino lontano) non
+      // si anima: scorrerebbe all'indietro attraverso tutti i grafici in mezzo,
+      // che e' esattamente l'impressione opposta a quella di un anello.
+      const adjacent = Math.abs(to - from) === 1;
+
+      track.scrollTo({
+        left: to * track.clientWidth,
+        behavior: smooth && adjacent && !prefersReducedMotion() ? 'smooth' : 'auto'
+      });
+
+      syncCarousel(groupId);
+    }
+
+    function syncCarousel(groupId) {
+      const root = carouselRoot(groupId);
+      const group = CHART_GROUPS.find(g => g.id === groupId);
+      if (!root || !group) return;
+
+      const index = carouselCard[groupId] || 0;
+
+      root.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+        const current = i === index;
+        dot.classList.toggle('active', current);
+        dot.setAttribute('aria-current', String(current));
+      });
+
+      // Nessuna freccia disabilitata: si gira in tondo, quindi da qualunque
+      // grafico si puo' sempre andare avanti e indietro.
+    }
+
+    function renderCarousel(group, width, ctx) {
+      // La larghezza di una card e' quella del contenitore: le card stanno
+      // affiancate nel track e se ne vede una per volta.
+      const cards = group.charts.map(chart => `
+        <article class="carousel-card" aria-label="${esc(chart.title)}">${chart.render(width, ctx)}</article>
+      `).join('');
+
+      const dots = group.charts.map((chart, i) => `
+        <button type="button" class="carousel-dot" data-index="${i}"
+          aria-label="Vai a ${esc(chart.title)}"></button>
+      `).join('');
+
+      return `
+        <section class="chart-group">
+          <h3 class="group-title">${group.title}</h3>
+          <div class="carousel" data-group="${group.id}">
+            <div class="carousel-track">${cards}</div>
+            <div class="carousel-nav">
+              <button type="button" class="carousel-arrow" data-dir="-1" aria-label="Grafico precedente">‹</button>
+              <div class="carousel-dots">${dots}</div>
+              <button type="button" class="carousel-arrow" data-dir="1" aria-label="Grafico successivo">›</button>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function wireCarousel(group, width) {
+      const root = carouselRoot(group.id);
+      if (!root) return;
+
+      const track = root.querySelector('.carousel-track');
+
+      // Ripristino senza animazione: l'HTML e' appena stato ricreato, quindi non
+      // c'e' nessuno spostamento da mostrare, solo una posizione da tenere.
+      track.scrollLeft = (carouselCard[group.id] || 0) * width;
+      syncCarousel(group.id);
+
+      root.querySelectorAll('.carousel-arrow').forEach(btn => {
+        btn.addEventListener('click', () => {
+          goToCard(group.id, (carouselCard[group.id] || 0) + Number(btn.dataset.dir), true);
+        });
+      });
+
+      root.querySelectorAll('.carousel-dot').forEach(dot => {
+        dot.addEventListener('click', () => goToCard(group.id, Number(dot.dataset.index), true));
+      });
+
+      // Lo swipe non passa dai pulsanti: la posizione va riletta dallo scroll, o
+      // i puntini resterebbero indietro rispetto a quello che si vede.
+      let scrollSettle = null;
+      track.addEventListener('scroll', () => {
+        clearTimeout(scrollSettle);
+        scrollSettle = setTimeout(() => {
+          const landed = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+          if (landed !== carouselCard[group.id]) {
+            carouselCard[group.id] = landed;
+            syncCarousel(group.id);
+          }
+        }, 80);
+      });
+
+      // Trascinamento col puntatore. Sul touch non serve — lo scroll nativo fa
+      // gia' tutto — e intercettarlo li' toglierebbe lo scorrimento inerziale.
+      let drag = null;
+
+      track.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch' || e.button !== 0) return;
+        drag = { startX: e.clientX, startLeft: track.scrollLeft, moved: false };
+      });
+
+      track.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+
+        const dx = e.clientX - drag.startX;
+
+        // Soglia di qualche pixel: senza, un click fermo sopra un punto del
+        // grafico verrebbe letto come un micro-trascinamento.
+        if (!drag.moved && Math.abs(dx) < 4) return;
+
+        if (!drag.moved) {
+          drag.moved = true;
+          // Lo snap va spento durante il trascinamento: con "mandatory" attivo
+          // ogni scrollLeft impostato a mano verrebbe subito riagganciato alla
+          // card piu' vicina, e il movimento risulterebbe a scatti.
+          track.classList.add('dragging');
+
+          // La cattura serve solo a non perdere il puntatore se esce dal track:
+          // se il browser la rifiuta il trascinamento deve comunque funzionare,
+          // non morire qui portandosi dietro il resto del handler.
+          try {
+            track.setPointerCapture(e.pointerId);
+          } catch {
+            /* puntatore non catturabile: si prosegue senza */
+          }
+        }
+
+        track.scrollLeft = drag.startLeft - dx;
+        e.preventDefault();
+      });
+
+      const endDrag = () => {
+        if (!drag) return;
+
+        const moved = drag.moved;
+        drag = null;
+        track.classList.remove('dragging');
+
+        // Al rilascio si aggancia alla card piu' vicina, cosi' il trascinamento
+        // finisce sempre su un grafico intero e mai a meta' strada.
+        if (moved) {
+          goToCard(group.id, Math.round(track.scrollLeft / Math.max(1, track.clientWidth)), true);
+        }
+      };
+
+      track.addEventListener('pointerup', endDrag);
+      track.addEventListener('pointercancel', endDrag);
+      track.addEventListener('pointerleave', endDrag);
+    }
+
+    function updateCharts(isRetry) {
+      refreshActiveRoster();
+
       const host = document.getElementById('charts');
       const width = host.clientWidth;
 
@@ -1735,10 +2404,28 @@
         return;
       }
 
+      // Un unico replay per i tre andamenti: rifarlo per ogni grafico darebbe le
+      // stesse identiche cifre al triplo del costo.
+      const ctx = { byDay: dailyRankings() };
+
+      // Una sola legenda in cima: e' la stessa per tutti i grafici, e ripeterla
+      // dentro ogni card ruberebbe spazio senza aggiungere nulla.
       host.innerHTML = renderLegend()
-        + renderRankHistory(width, dailyRankings())
-        + renderGamesPlayed(width)
-        + renderWinsPerDay(width);
+        + CHART_GROUPS.map(group => renderCarousel(group, width, ctx)).join('');
+
+      host.querySelectorAll('.legend-item').forEach(item => {
+        item.addEventListener('click', () => togglePlayer(item.dataset.player));
+      });
+
+      CHART_GROUPS.forEach(group => wireCarousel(group, width));
+
+      // Inserire i grafici allunga la pagina: se cosi' compare la barra di
+      // scorrimento verticale, la larghezza utile cala di una quindicina di
+      // pixel e il viewBox appena calcolato e' gia' vecchio, quindi gli SVG
+      // verrebbero rimpiccioliti dallo scaling. Si ridisegna una volta sola
+      // sulla larghezza vera: al secondo giro la barra c'e' gia' e la misura
+      // non cambia piu'.
+      if (!isRetry && host.clientWidth !== width) updateCharts(true);
     }
 
     // Aggiorna tutta l'UI
@@ -1809,6 +2496,141 @@
 
     document.getElementById('openFormBtn').addEventListener('click', openModal);
     document.getElementById('closeFormBtn').addEventListener('click', closeModal);
+
+    // --- Aggiunta giocatore -------------------------------------------------
+
+    const playerModal = document.getElementById('playerModal');
+    const playerForm = document.getElementById('playerForm');
+    const playerNameInput = document.getElementById('newPlayerName');
+    const playerFormError = document.getElementById('playerFormError');
+    const playerSubmitBtn = playerForm.querySelector('.btn-submit');
+    const openPlayerBtn = document.getElementById('openPlayerBtn');
+
+    let addingPlayer = false;
+
+    // Il pulsante resta sempre visibile: nasconderlo finche' il foglio non
+    // espone la rosa lo faceva sembrare una funzione mancante invece di una in
+    // attesa di configurazione. A essere bloccato e' l'invio, non il pulsante:
+    // con lo script vecchio la POST di un giocatore verrebbe interpretata come
+    // una partita e sporcherebbe il log, quindi non parte affatto e si spiega
+    // perche'.
+    function updateAddPlayerAvailability() {
+      openPlayerBtn.classList.toggle('needs-setup', loadedOnce && !backendHasRoster);
+    }
+
+    function showPlayerError(msg) {
+      playerFormError.textContent = msg;
+      playerFormError.hidden = !msg;
+    }
+
+    function openPlayerModal() {
+      if (!loadedOnce) {
+        showMessage('Attendi il caricamento dei dati.', 'error');
+        return;
+      }
+
+      // Senza rosa esposta dal foglio non c'e' nulla a cui aggiungere il nome:
+      // aprire il form lascerebbe scrivere per poi fallire al salvataggio.
+      if (!backendHasRoster) {
+        showMessage(
+          'Per aggiungere giocatori serve aggiornare lo script del foglio: incolla <code>apps-script/Code.gs</code> in Estensioni &gt; Apps Script, poi Deployment &gt; Gestisci deployment &gt; matita &gt; Versione: Nuova versione.',
+          'error'
+        );
+        return;
+      }
+
+      playerModal.hidden = false;
+      showPlayerError('');
+      playerNameInput.focus();
+    }
+
+    function closePlayerModal() {
+      if (playerModal.hidden || playerModal.classList.contains('closing')) return;
+
+      const finish = () => {
+        playerModal.hidden = true;
+        playerModal.classList.remove('closing');
+        playerForm.reset();
+        showPlayerError('');
+      };
+
+      if (prefersReducedMotion()) {
+        finish();
+        return;
+      }
+
+      playerModal.classList.add('closing');
+      playerModal.addEventListener('animationend', finish, { once: true });
+    }
+
+    openPlayerBtn.addEventListener('click', openPlayerModal);
+    document.getElementById('closePlayerBtn').addEventListener('click', closePlayerModal);
+
+    playerModal.addEventListener('click', (e) => {
+      if (e.target === playerModal) closePlayerModal();
+    });
+
+    // Un doppione cambierebbe silenziosamente le statistiche: due righe
+    // "Marco" e "marco" nel foglio diventerebbero due giocatori distinti, con
+    // le partite spalmate a meta' tra i due.
+    function findDuplicate(name) {
+      const needle = name.trim().toLowerCase();
+      return players.find(p => p.trim().toLowerCase() === needle);
+    }
+
+    playerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (addingPlayer) return;
+
+      const nome = playerNameInput.value.trim();
+
+      if (!nome) {
+        showPlayerError('Scrivi un nome.');
+        return;
+      }
+
+      const duplicate = findDuplicate(nome);
+      if (duplicate) {
+        showPlayerError(`"${duplicate}" è già in lista.`);
+        return;
+      }
+
+      addingPlayer = true;
+      playerSubmitBtn.disabled = true;
+      playerSubmitBtn.textContent = 'Aggiunta...';
+      showPlayerError('');
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          // Stesso content-type della POST partita: evita il preflight che le
+          // Web App Apps Script non autorizzano (vedi commento nel submit
+          // della partita).
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: JSON.stringify({ action: 'addPlayer', nome }),
+          signal: AbortSignal.timeout(90000)
+        });
+
+        const result = parseSheetResponse(await response.text(), response);
+
+        if (result.success) {
+          showMessage(`✅ ${nome} aggiunto!`, 'success');
+          closePlayerModal();
+          await loadData();
+        } else {
+          showPlayerError(result.error || 'Il foglio ha rifiutato il nome.');
+        }
+      } catch (error) {
+        showPlayerError(error.name === 'TimeoutError'
+          ? 'Il foglio non ha risposto in tempo: controlla se il nome è stato aggiunto prima di riprovare.'
+          : 'Aggiunta non riuscita: ' + error.message);
+      } finally {
+        addingPlayer = false;
+        playerSubmitBtn.disabled = false;
+        playerSubmitBtn.textContent = 'Aggiungi Giocatore';
+      }
+    });
 
     // Nav a pills: indipendente dal modale, nessuno stato persistito tra reload
     const tabs = [
@@ -1904,7 +2726,9 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !matchModal.hidden) closeModal();
+      if (e.key !== 'Escape') return;
+      if (!matchModal.hidden) closeModal();
+      if (!playerModal.hidden) closePlayerModal();
     });
 
     // Data di oggi in formato gg/mm/aaaa. E' il formato che il foglio (locale

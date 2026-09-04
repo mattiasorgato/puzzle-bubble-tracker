@@ -531,6 +531,69 @@
       border-left: 4px solid var(--neon-cyan);
     }
 
+    /* Animazioni show/hide: dichiarate solo dentro no-preference, cosi' con
+       prefers-reduced-motion:reduce nessuna regola "animation" esiste per
+       questi selettori e l'elemento cambia stato istantaneamente (il JS
+       aggira comunque l'attesa di animationend in quel caso, vedi script). */
+    @media (prefers-reduced-motion: no-preference) {
+      @keyframes tabPanelIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes tabPanelOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-8px); }
+      }
+
+      section[role="tabpanel"] {
+        animation: tabPanelIn 0.18s ease-out;
+      }
+
+      /* Specificita' maggiore della regola sopra: mentre e' presente vince
+         lei, quindi rimpiazza l'animazione di ingresso con quella di uscita. */
+      section[role="tabpanel"].tab-leaving {
+        animation: tabPanelOut 0.13s ease-in forwards;
+      }
+
+      @keyframes modalOverlayIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      @keyframes modalOverlayOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+
+      @keyframes modalPopIn {
+        from { opacity: 0; transform: scale(0.9); }
+        60% { transform: scale(1.03); }
+        to { opacity: 1; transform: scale(1); }
+      }
+
+      @keyframes modalPopOut {
+        from { opacity: 1; transform: scale(1); }
+        to { opacity: 0; transform: scale(0.92); }
+      }
+
+      .modal-overlay {
+        animation: modalOverlayIn 0.2s ease-out;
+      }
+
+      .modal-overlay .modal {
+        animation: modalPopIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      .modal-overlay.closing {
+        animation: modalOverlayOut 0.18s ease-in forwards;
+      }
+
+      .modal-overlay.closing .modal {
+        animation: modalPopOut 0.18s ease-in forwards;
+      }
+    }
+
     /* Responsive */
     @media (max-width: 640px) {
       header h1 {
@@ -967,6 +1030,13 @@
       updateHistory();
     }
 
+    // Con prefers-reduced-motion:reduce nessuna regola CSS "animation" esiste
+    // per .tab-leaving/.closing (vedi <style>): l'animationend che il resto
+    // del codice attende non arriverebbe mai, quindi qui si aggira l'attesa.
+    function prefersReducedMotion() {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
     // Apertura / chiusura del modale
     const matchModal = document.getElementById('matchModal');
     const matchForm = document.getElementById('matchForm');
@@ -987,15 +1057,33 @@
     }
 
     function openModal() {
+      // L'animazione di apertura riparte da sola in CSS alla rimozione di
+      // "hidden" (vedi .modal-overlay/.modal nel <style>), nessun'altra
+      // orchestrazione JS necessaria qui.
       matchModal.hidden = false;
       updateSubmitState();
       document.getElementById('player1').focus();
     }
 
     function closeModal() {
-      matchModal.hidden = true;
-      matchForm.reset();
-      updateSubmitState();
+      // Gia' chiuso, o chiusura gia' in corso: evita di riavviare l'animazione
+      // o di accumulare listener duplicati su pressioni ripetute di Esc.
+      if (matchModal.hidden || matchModal.classList.contains('closing')) return;
+
+      const finish = () => {
+        matchModal.hidden = true;
+        matchModal.classList.remove('closing');
+        matchForm.reset();
+        updateSubmitState();
+      };
+
+      if (prefersReducedMotion()) {
+        finish();
+        return;
+      }
+
+      matchModal.classList.add('closing');
+      matchModal.addEventListener('animationend', finish, { once: true });
     }
 
     document.getElementById('openFormBtn').addEventListener('click', openModal);
@@ -1007,13 +1095,67 @@
       { btn: document.getElementById('tabHistory'), panel: document.getElementById('historySection') }
     ];
 
+    let activeTabId = tabs.find(({ panel }) => !panel.hidden).panel.id;
+    // Uscita animata in corso (se presente): tenerne un riferimento esplicito
+    // permette di annullarla con removeEventListener invece di lasciare che
+    // un vecchio animationend scaduto sovrascriva uno stato piu' recente,
+    // nel caso l'utente clicchi un'altra pill prima che finisca.
+    let pendingExit = null;
+
+    function cancelPendingExit() {
+      if (!pendingExit) return;
+      pendingExit.panel.removeEventListener('animationend', pendingExit.listener);
+      pendingExit.panel.classList.remove('tab-leaving');
+      pendingExit = null;
+    }
+
     function switchTab(panelId) {
+      if (panelId === activeTabId) return;
+
+      const previousActiveId = activeTabId;
+      activeTabId = panelId;
+
+      // Stato ARIA/pill aggiornato subito al click, indipendente dalla durata
+      // dell'animazione della sezione (vedi requisito accessibilita').
       tabs.forEach(({ btn, panel }) => {
         const active = panel.id === panelId;
         btn.classList.toggle('active', active);
         btn.setAttribute('aria-selected', String(active));
-        panel.hidden = !active;
       });
+
+      const incoming = tabs.find(t => t.panel.id === panelId).panel;
+      const outgoing = tabs.find(t => t.panel.id === previousActiveId).panel;
+
+      if (pendingExit && pendingExit.panel === incoming) {
+        // La pill appena scelta e' quella la cui sezione stava ancora sparendo
+        // da un cambio precedente (avanti-indietro rapido): e' gia' visibile,
+        // basta annullarne l'uscita.
+        cancelPendingExit();
+        return;
+      }
+
+      if (pendingExit) {
+        // Un'uscita diversa era in corso: il suo turno e' scavalcato dalla
+        // nuova scelta, va conclusa subito senza aspettare l'animazione.
+        pendingExit.panel.hidden = true;
+        cancelPendingExit();
+      }
+
+      if (prefersReducedMotion()) {
+        outgoing.hidden = true;
+        incoming.hidden = false;
+        return;
+      }
+
+      outgoing.classList.add('tab-leaving');
+      const onLeaveEnd = () => {
+        outgoing.hidden = true;
+        outgoing.classList.remove('tab-leaving');
+        pendingExit = null;
+        incoming.hidden = false;
+      };
+      outgoing.addEventListener('animationend', onLeaveEnd, { once: true });
+      pendingExit = { panel: outgoing, listener: onLeaveEnd };
     }
 
     tabs.forEach(({ btn, panel }) => {

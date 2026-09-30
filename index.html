@@ -24,7 +24,7 @@
       --neon-yellow: #ffd93d;
       --text-primary: #f4f1ff;
       --text-muted: #b8a9d9;
-      /* Guadagno e perdita Elo: scelti sul fondo del pannello (#1a0b3d), dove
+      /* Guadagno e perdita di rating: scelti sul fondo del pannello (#1a0b3d), dove
          stanno entrambi sopra 4.5:1 — sono testo piccolo, non decorazione. */
       --elo-gain: #3ce88a;
       --elo-loss: #ff7a8a;
@@ -142,6 +142,38 @@
     .tab-pill:focus-visible {
       outline: 2px solid var(--neon-cyan);
       outline-offset: 2px; 
+    }
+
+    /* Scelta Rating / Elo classico: stesso linguaggio delle pills, ma piu'
+       piccola, perche' cambia una vista dentro la sezione e non la sezione */
+    .ranking-toggle {
+      display: inline-flex;
+      gap: 0.25rem;
+      padding: 0.2rem;
+      margin-bottom: 1rem;
+      border: 1px solid rgba(0, 229, 255, 0.25);
+      border-radius: 999px;
+    }
+
+    .ranking-option {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .ranking-option:hover {
+      color: var(--text-primary);
+    }
+
+    .ranking-option[aria-pressed="true"] {
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%);
+      color: var(--bg-void);
     }
 
     section {
@@ -504,6 +536,24 @@
       margin-top: 0.25rem;
     }
 
+    /* r ± RD sotto il punteggio: e' il dettaglio, non il numero principale */
+    .stat-rd {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Testo e non solo colore: deve leggersi anche senza distinguere le tinte */
+    .provisional-badge {
+      display: inline-block;
+      padding: 0 0.35em;
+      border: 1px solid var(--neon-yellow);
+      border-radius: 999px;
+      font-size: 0.85em;
+      color: var(--neon-yellow);
+      white-space: nowrap;
+    }
+
     /* History styles */
     .history-table {
       width: 100%;
@@ -539,7 +589,7 @@
       text-shadow: 0 0 8px rgba(0, 229, 255, 0.45);
     }
 
-    /* Punti Elo mossi dalla partita, accanto al nome. Il segno e' scritto nel
+    /* Punti rating mossi dalla partita, accanto al nome. Il segno e' scritto nel
        testo e non affidato al solo colore: verde e rosso sono la coppia peggiore
        per chi ha una carenza cromatica, e qui sono solo un rinforzo. */
     .elo-delta {
@@ -940,6 +990,23 @@
         white-space: nowrap;
       }
 
+      /* In riga non c'e' spazio per r ± RD e badge insieme: il badge prende il
+         posto del dettaglio, che resta nel title della card. Cosi' ogni riga ha
+         la stessa altezza e la colonna del rating non ruba spazio al nome. */
+      .stat-rd {
+        font-size: 0.7rem;
+      }
+
+      .stat-rating:has(.provisional-badge) .stat-rd {
+        display: none;
+      }
+
+      .stat-rating .provisional-badge {
+        display: block;
+        width: fit-content;
+        font-size: 0.65rem;
+      }
+
       .podium {
         gap: 0.4rem;
       }
@@ -1089,6 +1156,12 @@
     <!-- Stats sezione -->
     <section id="statsSection" role="tabpanel" aria-labelledby="tabStats">
       <h2>📊 Statistiche</h2>
+      <!-- Quale classifica mostrano podio e stat card: storico e grafici
+           restano sempre sul Rating -->
+      <div class="ranking-toggle" role="group" aria-label="Sistema di classifica">
+        <button type="button" class="ranking-option" data-view="rating" aria-pressed="true">Rating</button>
+        <button type="button" class="ranking-option" data-view="elo" aria-pressed="false">Elo classico</button>
+      </div>
       <div id="podium" class="podium"></div>
       <div id="stats" class="stats-grid">
         <div class="loading">
@@ -1121,6 +1194,8 @@
     </section>
   </div>
 
+  <script src="rating.js"></script>
+  <script src="elo.js"></script>
   <script>
     // CONFIG - MODIFICA QUESTO CON IL TUO URL
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyf2n1QhX6mU-ENMIfb2DY1Djc0sEfpcXnDhGecBEFL00aPmcPvP6tGeHc6sCCIRgLbMQ/exec'; // Sostituisci con il tuo
@@ -1349,55 +1424,17 @@
       activeRoster = players.filter(player => hasPlayed.has(player));
     }
 
-    // Calcola statistiche per giocatore
-    function getPlayerStats(player) {
-      const played = allMatches.filter(
-        m => m.giocatore1 === player || m.giocatore2 === player
-      );
-
-      // Sul foglio "vincitore" e' il nome del giocatore, non la sua posizione
-      const wins = played.filter(m => m.vincitore === player).length;
-
-      return { wins, losses: played.length - wins, played: played.length };
-    }
-
     // ---------------------------------------------------------------------
-    // Rating Elo
+    // Rating Glicko-2
     // ---------------------------------------------------------------------
 
-    // Tutti partono da 1000 e si scambiano K punti pesati sull'attesa, quindi
-    // battere un avversario piu' forte vale piu' che battere uno piu' debole.
-    // K=24 e' il compromesso tra separare i giocatori in poche decine di
-    // partite e non far ballare la classifica a ogni singolo risultato.
-    const ELO_START = 1000;
-    const ELO_K = 24;
-
-    // La data sul foglio ha granularita' di giorno: come chiave si usa
-    // aaaa-mm-gg, che e' ordinabile come stringa.
-    function matchDayKey(value) {
-      if (!value) return null;
-
-      // Una gg/mm/aaaa va letta com'e': passarla a new Date() la farebbe
-      // interpretare alla americana (03/09 -> 9 marzo), come gia' in formatDate.
-      const itDate = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value).trim());
-      if (itDate) return `${itDate[3]}-${itDate[2]}-${itDate[1]}`;
-
-      const d = new Date(value);
-      if (isNaN(d)) return null;
-
-      // Il foglio manda mezzanotte locale come timestamp UTC: va riletta nel
-      // fuso locale o ogni partita scivolerebbe al giorno prima.
-      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-    }
-
-    function pad2(n) {
-      return String(n).padStart(2, '0');
-    }
-
-    function todayKey() {
-      const now = new Date();
-      return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-    }
+    // Il motore sta in rating.js, testato a parte con `node --test`: qui c'e'
+    // solo il collegamento con i dati della pagina. Il rating e' ricalcolato da
+    // zero a ogni render invece che memorizzato: cosi' qualunque correzione
+    // fatta a mano sul foglio si riflette subito, senza stati salvati da tenere
+    // allineati. Il replay di tutto lo storico costa millisecondi, quindi non
+    // serve nessun job di fine giornata: lo stato mostrato e' sempre quello
+    // "come se la giornata di oggi si chiudesse adesso".
 
     // Differenza in giorni tra due chiavi: calcolata su Date.UTC, cosi' il
     // cambio di ora legale non fa comparire o sparire un giorno.
@@ -1407,166 +1444,66 @@
       return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
     }
 
-    // Ordine canonico delle partite: per giornata crescente e, dentro la stessa
-    // giornata, per ordine di riga sul foglio (l'unica sequenza disponibile,
-    // visto che la data non ha orario). Serve un ordine unico perche' nell'Elo
-    // la sequenza dei match conta: rating finale e classifiche giornaliere
-    // devono raccontare la stessa storia.
+    // Partite in ordine di giornata e di riga, con la giornata nel fuso
+    // dell'ufficio (vedi rating.js).
     function chronologicalMatches() {
-      // Una data illeggibile eredita la giornata della riga precedente invece
-      // di essere scartata: la partita resta contata e la sequenza non si
-      // spezza. Se capita in testa, eredita la prima giornata leggibile.
-      const keys = allMatches.map(m => matchDayKey(m.data));
-      let day = keys.find(Boolean) || todayKey();
-
-      return allMatches
-        .map((match, row) => {
-          if (keys[row]) day = keys[row];
-          return { match, row, day };
-        })
-        .sort((a, b) => a.day.localeCompare(b.day) || a.row - b.row);
+      return Rating.chronologicalMatches(allMatches);
     }
 
-    // Stato incrementale della classifica: lo stesso replay serve sia per il
-    // rating finale sia per la fotografia della classifica a fine giornata.
-    function createStandings() {
-      const ratings = new Map(players.map(p => [p, ELO_START]));
-      const wins = new Map(players.map(p => [p, 0]));
-      const played = new Map(players.map(p => [p, 0]));
+    // Le righe non valide (giocatore fuori rosa, vincitore che non e' nessuno
+    // dei due...) restano fuori dal replay, ma non in silenzio: vanno corrette
+    // sul foglio. L'avviso esce solo quando le anomalie cambiano, non a ogni
+    // refresh.
+    let reportedAnomalies = '';
 
-      return {
-        ratings,
-        played,
-
-        // Restituisce i punti che la partita ha spostato sul giocatore 1
-        // (il giocatore 2 muove dello stesso valore col segno opposto), o null
-        // se la riga non e' stata applicata: e' l'unico punto in cui il delta
-        // esiste, e lo storico lo mostra accanto ai nomi.
-        apply(match) {
-          const a = match.giocatore1;
-          const b = match.giocatore2;
-
-          // Una riga il cui vincitore non e' nessuno dei due giocatori non e'
-          // interpretabile: inventare un risultato falserebbe tutto il replay
-          // successivo, quindi si salta.
-          if (!ratings.has(a) || !ratings.has(b)) return null;
-          if (match.vincitore !== a && match.vincitore !== b) return null;
-
-          const scoreA = match.vincitore === a ? 1 : 0;
-          const expectedA = 1 / (1 + Math.pow(10, (ratings.get(b) - ratings.get(a)) / 400));
-          const delta = ELO_K * (scoreA - expectedA);
-
-          // Somma zero: quello che A guadagna, B lo perde
-          ratings.set(a, ratings.get(a) + delta);
-          ratings.set(b, ratings.get(b) - delta);
-
-          played.set(a, played.get(a) + 1);
-          played.set(b, played.get(b) + 1);
-          wins.set(match.vincitore, wins.get(match.vincitore) + 1);
-
-          return delta;
-        },
-
-        // Solo chi ha gia' giocato: senza il filtro, a inizio storico tutti
-        // sarebbero fermi a 1000 e la vetta la deciderebbe l'alfabeto.
-        // L'ordine e' totale (rating, vittorie, partite, nome) perche' con il
-        // refresh ogni 10 secondi due giocatori appaiati altrimenti si
-        // scambierebbero di posto da soli a ogni tick.
-        ranking() {
-          return players
-            .filter(p => played.get(p) > 0)
-            .sort((a, b) =>
-              ratings.get(b) - ratings.get(a)
-              || wins.get(b) - wins.get(a)
-              || played.get(b) - played.get(a)
-              || a.localeCompare(b)
-            );
-        },
-
-        // Fotografia della giornata. Le mappe vanno COPIATE: sono le stesse che
-        // il replay continua a modificare, e tenerne il riferimento darebbe a
-        // ogni giornata i valori dell'ultima.
-        snapshot() {
-          const winRate = new Map();
-
-          played.forEach((count, player) => {
-            if (count > 0) winRate.set(player, (wins.get(player) / count) * 100);
-          });
-
-          return {
-            ranking: this.ranking(),
-            ratings: new Map(ratings),
-            winRate
-          };
-        }
-      };
-    }
-
-    // Rating ricalcolato da zero a ogni render invece che memorizzato: cosi'
-    // qualunque correzione fatta a mano sul foglio si riflette subito, senza
-    // stati salvati da tenere allineati.
     function computeRatings() {
-      const standings = createStandings();
-      chronologicalMatches().forEach(({ match }) => standings.apply(match));
-      return standings.ratings;
+      const anomalies = Rating.validateLog(allMatches, players);
+      const key = JSON.stringify(anomalies.map(a => [a.row, a.problem]));
+
+      if (anomalies.length && key !== reportedAnomalies) {
+        console.warn('Partite escluse dal rating, da correggere sul foglio:', anomalies);
+      }
+      reportedAnomalies = key;
+
+      return Rating.replay(chronologicalMatches(), players);
     }
 
-    // Punti scambiati in ogni singola partita, per lo storico. La chiave e'
-    // l'oggetto partita: le righe del foglio non hanno un id e due partite
-    // possono coincidere in tutti i campi (stessa giornata, stessi giocatori,
-    // stesso vincitore), quindi solo l'identita' dell'oggetto distingue una
-    // riga dall'altra. Il valore e' il delta del giocatore 1; il giocatore 2
-    // ha lo stesso numero col segno opposto.
-    function matchEloDeltas() {
-      const standings = createStandings();
-      const deltas = new Map();
-
-      chronologicalMatches().forEach(({ match }) => {
-        const delta = standings.apply(match);
-        if (delta !== null) deltas.set(match, delta);
-      });
-
-      return deltas;
+    // Variazione del punteggio di ciascun giocatore in ogni partita, per lo
+    // storico: Map partita -> Map nome -> delta. La chiave e' l'oggetto
+    // partita: le righe del foglio non hanno un id e due partite possono
+    // coincidere in tutti i campi.
+    function matchRatingDeltas() {
+      return Rating.matchDeltas(chronologicalMatches(), players);
     }
 
-    // Classifica completa, ordinata come sopra.
+    // Classifica mostrata da podio e stat card: 'rating' (Glicko-2) o 'elo'
+    // (Elo classico, elo.js). Si riparte sempre dal Rating a ogni caricamento.
+    let rankingView = 'rating';
+
+    // Classifica completa della vista scelta. Rating: per punteggio prudente
+    // (r - 2·RD), poi partite, poi nome; chi compare solo in righe scartate ha
+    // i valori di partenza. Elo: per rating, vittorie, partite, nome.
     function rankedPlayers() {
       refreshActiveRoster();
 
-      const ratings = computeRatings();
+      if (rankingView === 'elo') return Elo.eloRanking(chronologicalMatches(), players);
+
+      const { state, period } = computeRatings();
 
       return activeRoster
-        .map(player => ({ player, rating: ratings.get(player), ...getPlayerStats(player) }))
-        .sort((a, b) =>
-          b.rating - a.rating
-          || b.wins - a.wins
-          || b.played - a.played
-          || a.player.localeCompare(b.player)
-        );
+        .map(player => Rating.viewOf(state, period, player))
+        .sort(Rating.compareStandings);
     }
 
     // Classifica alla fine di ogni giornata giocata: serve sia alla permanenza
-    // in vetta sia al grafico dell'andamento.
+    // in vetta sia ai grafici dell'andamento.
     function dailyRankings() {
-      const standings = createStandings();
-      const byDay = [];
-      let currentDay = null;
-
-      chronologicalMatches().forEach(({ match, day }) => {
-        // Cambio giornata: prima si fotografa la classifica come si e' chiusa
-        // il giorno precedente, poi si applica la partita nuova.
-        if (currentDay !== null && day !== currentDay) {
-          byDay.push({ day: currentDay, ...standings.snapshot() });
-        }
-        currentDay = day;
-        standings.apply(match);
-      });
-
-      if (currentDay !== null) {
-        byDay.push({ day: currentDay, ...standings.snapshot() });
-      }
-
-      return byDay;
+      return computeRatings().byDay.map(({ day, standings }) => ({
+        day,
+        ranking: standings.map(s => s.player),
+        scores: new Map(standings.map(s => [s.player, s.score])),
+        winRate: new Map(standings.map(s => [s.player, (s.wins / s.played) * 100]))
+      }));
     }
 
     // Da quanti giorni il leader attuale e' in vetta: si risale indietro
@@ -1589,7 +1526,23 @@
       // Minimo un giorno: chi ha preso la vetta oggi e' comunque in vetta da un
       // giorno, e una data futura battuta a mano sul foglio non deve produrre
       // numeri negativi.
-      return { leader, days: Math.max(1, dayDiff(since, todayKey())) };
+      return { leader, days: Math.max(1, dayDiff(since, Rating.todayKey())) };
+    }
+
+    // Chi ha ancora molta incertezza resta in classifica, ma segnalato: il suo
+    // punteggio e' basso perche' il sistema non lo conosce ancora, non
+    // necessariamente perche' gioca male.
+    function provisionalBadge(r) {
+      return r.provisional
+        ? ` <span class="provisional-badge" title="Poche partite: RD ${Math.round(r.rd)} sopra ${Rating.RATING_CONFIG.PROVISIONAL_RD}">Provvisorio</span>`
+        : '';
+    }
+
+    // Il numero principale di un giocatore nella vista scelta.
+    function ratingFigure(r) {
+      return rankingView === 'elo'
+        ? `${Math.round(r.rating)} Elo`
+        : `${Math.round(r.score)} Rating${provisionalBadge(r)}`;
     }
 
     // Podio dei 3 rating piu' alti, con la permanenza in vetta sul primo posto.
@@ -1597,7 +1550,9 @@
       refreshActiveRoster();
 
       const podiumDiv = document.getElementById('podium');
-      const ranked = rankedPlayers().slice(0, 3);
+
+      // Il podio e' del Rating: la vista Elo classico mostra solo le card
+      const ranked = rankingView === 'elo' ? [] : rankedPlayers().slice(0, 3);
 
       if (ranked.length === 0) {
         podiumDiv.innerHTML = '';
@@ -1625,7 +1580,7 @@
             <div class="podium-medal">${medals[i]}</div>
             <div class="podium-name">${esc(r.player)}</div>
             ${streakLine}
-            <div class="podium-rate">${Math.round(r.rating)} Elo</div>
+            <div class="podium-rate">${ratingFigure(r)}</div>
             <div class="podium-record">${r.wins}-${r.losses}</div>
             <div class="podium-block">${i + 1}</div>
           </div>
@@ -1650,17 +1605,28 @@
       // ordine totale, quindi l'auto-refresh non le fa ballare.
       // Record e etichetta stanno in un contenitore comune: su mobile la card
       // diventa una riga e i due devono spostarsi come un blocco solo.
+      const elo = rankingView === 'elo';
       const cards = rankedPlayers().map((r, i) => `
-          <div class="stat-card" title="${esc(r.player)}">
+          <div class="stat-card" title="${esc(r.player)}${elo ? '' : ` — ${Math.round(r.rating)} ± ${Math.round(r.rd)}`}">
             <div class="stat-rank">#${i + 1}</div>
             <div class="stat-player">${esc(r.player)}</div>
             <div class="stat-record">
               <div class="stat-value">${r.wins}-${r.losses}</div>
               <div class="stat-label">W-L Record</div>
             </div>
-            <div class="stat-rating">${Math.round(r.rating)} Elo</div>
+            <div class="stat-rating">${elo ? ratingFigure(r) : `
+              ${Math.round(r.score)} Rating
+              <span class="stat-rd">${Math.round(r.rating)} ± ${Math.round(r.rd)}</span>${provisionalBadge(r)}
+            `}</div>
           </div>
         `).join('');
+
+      // Il numero in classifica non e' il rating "vero" ma una stima prudente:
+      // senza una riga che lo dica, vedere un 2-0 sotto un 18-26 sembrerebbe
+      // un errore.
+      const helpLine = elo
+        ? `<p class="stats-waiting">Elo classico: tutti partono da ${Elo.ELO_START}, K ${Elo.ELO_K}, a somma zero, senza misura di incertezza.</p>`
+        : `<p class="stats-waiting">Rating = stima prudente (r − 2·RD): sale man mano che il sistema è più sicuro del tuo livello, e scende piano se smetti di giocare. "Provvisorio" finché l'incertezza RD supera ${Rating.RATING_CONFIG.PROVISIONAL_RD}.</p>`;
 
       // Chi e' in rosa ma non ha ancora giocato non entra in classifica — un
       // rating di partenza non e' un risultato — ma va detto che c'e', o
@@ -1670,12 +1636,13 @@
         ? `<p class="stats-waiting">In attesa della prima partita: ${waiting.map(esc).join(', ')}</p>`
         : '';
 
-      statsDiv.innerHTML = cards + waitingLine;
+      statsDiv.innerHTML = cards + waitingLine + helpLine;
     }
 
     // Il foglio restituisce le date come timestamp ISO in UTC: la mezzanotte
     // locale diventa 22:00Z del giorno prima, quindi va formattata nel fuso
-    // locale o ogni partita risulterebbe giocata il giorno precedente.
+    // dell'ufficio (lo stesso delle giornate di rating) o ogni partita
+    // risulterebbe giocata il giorno precedente.
     function formatDate(value) {
       if (!value) return '?';
 
@@ -1690,7 +1657,8 @@
       return d.toLocaleDateString('it-IT', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
+        year: 'numeric',
+        timeZone: Rating.RATING_CONFIG.TIMEZONE
       });
     }
 
@@ -1703,14 +1671,16 @@
         return;
       }
 
-      const deltas = matchEloDeltas();
+      const deltas = matchRatingDeltas();
 
-      // I punti mossi dalla partita, accanto al nome: arrivano gia' interi (vedi
-      // sotto). Con un divario di rating enorme il vincitore puo' muovere meno
-      // di mezzo punto: li' un "+0" sembrerebbe un errore, quindi si scrive
-      // "±0" da entrambe le parti.
-      const eloBadge = points => {
-        if (points === undefined) return '';
+      // Di quanto la partita ha mosso il rating di quel giocatore, accanto al
+      // nome. I due numeri di una partita sono in generale diversi: Glicko-2
+      // non e' a somma zero, chi e' piu' incerto si muove di piu'. Sotto il
+      // mezzo punto un "+0" sembrerebbe un errore, quindi si scrive "±0".
+      const eloBadge = delta => {
+        if (delta === undefined) return '';
+
+        const points = Math.round(delta);
         if (points === 0) return ' <span class="elo-delta elo-delta-zero">(±0)</span>';
 
         const cls = points > 0 ? 'elo-delta-up' : 'elo-delta-down';
@@ -1720,26 +1690,21 @@
       // Il vincitore non ha piu' una colonna sua: ripeteva un nome gia' presente
       // in una delle due colonne dei giocatori. Ora e' quel nome a portare la
       // corona, e la tabella sta in tre colonne anche su mobile.
-      const playerCell = (name, winner, points) => name === winner
-        ? `<td><span class="winner-name">👑 ${esc(name)}</span>${eloBadge(points)}</td>`
-        : `<td>${esc(name)}${eloBadge(points)}</td>`;
+      const playerCell = (name, winner, delta) => name === winner
+        ? `<td><span class="winner-name">👑 ${esc(name)}</span>${eloBadge(delta)}</td>`
+        : `<td>${esc(name)}${eloBadge(delta)}</td>`;
 
       const sorted = [...allMatches].reverse();
       const rows = sorted.map(match => {
         // Una riga saltata dal replay (giocatore fuori roster, vincitore che non
         // e' nessuno dei due) non ha delta: resta nello storico senza badge.
-        //
-        // Si arrotonda una volta sola e si nega dopo, cosi' i due giocatori
-        // mostrano sempre lo stesso numero: arrotondando separatamente, un .5
-        // darebbe +12 a uno e -11 all'altro.
         const delta = deltas.get(match);
-        const points = delta === undefined ? undefined : Math.round(delta);
 
         return `
           <tr>
             <td>${formatDate(match.data)}</td>
-            ${playerCell(match.giocatore1, match.vincitore, points)}
-            ${playerCell(match.giocatore2, match.vincitore, points === undefined ? undefined : -points)}
+            ${playerCell(match.giocatore1, match.vincitore, delta && delta.get(match.giocatore1))}
+            ${playerCell(match.giocatore2, match.vincitore, delta && delta.get(match.giocatore2))}
           </tr>
         `;
       }).join('');
@@ -1934,7 +1899,7 @@
 
     // Allontana le etichette che si sovrappongono, mantenendone l'ordine
     // verticale. Sulla classifica non servirebbe (le posizioni sono tutte
-    // diverse), ma su Elo e win rate due giocatori possono valere quasi lo
+    // diverse), ma su rating e win rate due giocatori possono valere quasi lo
     // stesso e i nomi finirebbero stampati uno sull'altro.
     // Due passate: la prima spinge in basso chi e' troppo vicino al precedente,
     // la seconda recupera verso l'alto se la prima ha sforato il fondo.
@@ -1958,7 +1923,7 @@
       return out;
     }
 
-    // Struttura comune dei tre andamenti (classifica, Elo, win rate): cambia
+    // Struttura comune dei tre andamenti (classifica, rating, win rate): cambia
     // solo cosa si legge sull'asse Y. Tenerli un'unica funzione garantisce che
     // restino confrontabili a vista — stessa griglia, stessi colori, stesse
     // etichette dirette — invece di divergere a ogni ritocco.
@@ -2110,26 +2075,26 @@
 
       byDay.forEach(entry => {
         entry.ranking.forEach(player => {
-          if (visible.includes(player)) seen.push(entry.ratings.get(player));
+          if (visible.includes(player)) seen.push(entry.scores.get(player));
         });
       });
 
       if (seen.length === 0) {
-        return chartFigure('Andamento ELO', chartNote('Nessun rating da mostrare.'));
+        return chartFigure('Andamento Rating', chartNote('Nessun rating da mostrare.'));
       }
 
       const ticks = niceTicks(Math.min(...seen), Math.max(...seen))
         .map(v => ({ value: v, label: String(Math.round(v)) }));
 
       return renderLineChart({
-        title: 'Andamento ELO',
+        title: 'Andamento Rating',
         width,
         byDay,
-        valueOf: (entry, player) => (entry.ranking.includes(player) ? entry.ratings.get(player) : null),
+        valueOf: (entry, player) => (entry.ranking.includes(player) ? entry.scores.get(player) : null),
         ticks,
         invert: false,
         plotH: 170,
-        formatValue: v => `${Math.round(v)} Elo`,
+        formatValue: v => `${Math.round(v)} Rating`,
         note: 'Punti guadagnati e persi, non solo la posizione.'
       });
     }
@@ -2305,7 +2270,7 @@
         title: '🏆 Classifica',
         charts: [
           { title: 'Andamento classifica', render: (w, ctx) => renderRankHistory(w, ctx.byDay) },
-          { title: 'Andamento ELO', render: (w, ctx) => renderEloHistory(w, ctx.byDay) },
+          { title: 'Andamento Rating', render: (w, ctx) => renderEloHistory(w, ctx.byDay) },
           { title: 'Andamento win rate', render: (w, ctx) => renderWinRateHistory(w, ctx.byDay) }
         ]
       },
@@ -2748,6 +2713,18 @@
       }
     });
 
+    // Scelta della classifica: cambia solo podio e stat card
+    const rankingOptions = document.querySelectorAll('.ranking-option');
+
+    rankingOptions.forEach(btn => {
+      btn.addEventListener('click', () => {
+        rankingView = btn.dataset.view;
+        rankingOptions.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+        updatePodium();
+        updateStats();
+      });
+    });
+
     // Nav a pills: indipendente dal modale, nessuno stato persistito tra reload
     const tabs = [
       { btn: document.getElementById('tabStats'), panel: document.getElementById('statsSection') },
@@ -2850,13 +2827,15 @@
     // Data di oggi in formato gg/mm/aaaa. E' il formato che il foglio (locale
     // italiano) riconosce come data vera: inviando "2026-09-03" Sheets non lo
     // interpreta e lo archivia come semplice testo, disallineato dalle altre
-    // righe. Usa il fuso locale, quindi una partita giocata a tarda sera non
-    // slitta al giorno precedente come farebbe toISOString().
+    // righe. Usa il fuso dell'ufficio, quindi una partita giocata a tarda sera
+    // non slitta al giorno precedente come farebbe toISOString(), e chi la
+    // registra da un altro fuso la mette comunque nella giornata giusta.
     function todayLocale() {
       return new Date().toLocaleDateString('it-IT', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
+        year: 'numeric',
+        timeZone: Rating.RATING_CONFIG.TIMEZONE
       });
     }
 

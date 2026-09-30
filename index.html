@@ -1149,6 +1149,37 @@
     let saving = false;
     let failStreak = 0;
 
+    // L'Apps Script Web App risponde in 3-6s nel caso migliore (misurato),
+    // fino a decine di secondi sotto carico: senza questa cache ogni apertura
+    // pagina mostra schermata vuota/spinner per tutta quella attesa, anche se
+    // i dati non sono cambiati dall'ultima visita. Qui si salva/rilegge solo
+    // l'ULTIMO stato noto per un rendering immediato; il fetch vero parte
+    // comunque subito dopo e sovrascrive tutto quando arriva.
+    const CACHE_KEY = 'pbt-cache-v1';
+
+    function saveCache() {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ matches: allMatches, players, backendHasRoster }));
+      } catch {
+        // Storage pieno, disabilitato o modalita' privata: la cache e' solo
+        // un'ottimizzazione, la pagina funziona comunque senza.
+      }
+    }
+
+    function loadCache() {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+
+        const cached = JSON.parse(raw);
+        if (!cached || !Array.isArray(cached.matches) || !Array.isArray(cached.players)) return null;
+
+        return cached;
+      } catch {
+        return null;
+      }
+    }
+
     // Apps Script risponde con una pagina HTML quando Google intercala un
     // errore o una schermata di autorizzazione. response.json() in quel caso
     // muore con "Unexpected token '<'", che non dice nulla su cosa sia andato
@@ -1206,6 +1237,7 @@
 
           loadedOnce = true;
           updateUI();
+          saveCache();
         } else {
           handleLoadError('Errore nel caricamento dati');
         }
@@ -2692,7 +2724,16 @@
         if (result.success) {
           showMessage(`✅ ${nome} aggiunto!`, 'success');
           closePlayerModal();
-          await loadData();
+
+          // Aggiornamento ottimistico: il foglio ha gia' confermato il
+          // successo, non serve un secondo giro di attesa (altri 3-6s+) solo
+          // per rileggere un dato che conosciamo gia'. Il refresh in
+          // background (non atteso) riconcilia col foglio quando arriva.
+          players = mergeRoster([...players, nome]);
+          updateAddPlayerAvailability();
+          updateUI();
+          saveCache();
+          loadData();
         } else {
           showPlayerError(result.error || 'Il foglio ha rifiutato il nome.');
         }
@@ -2874,7 +2915,15 @@
         if (result.success) {
           showMessage('✅ Partita salvata!', 'success');
           closeModal();
-          await loadData();
+
+          // Aggiornamento ottimistico: il foglio ha gia' confermato il
+          // successo, non serve un secondo giro di attesa (altri 3-6s+) solo
+          // per rileggere un dato che conosciamo gia'. Il refresh in
+          // background (non atteso) riconcilia col foglio quando arriva.
+          allMatches.push({ ...formData });
+          updateUI();
+          saveCache();
+          loadData();
         } else {
           showMessage('Errore nel salvataggio: ' + result.error, 'error');
         }
@@ -2913,13 +2962,34 @@
 
     // Carica dati on mount
     window.addEventListener('load', () => {
+      // Rendering immediato dall'ultimo stato noto, cosi' l'apertura pagina
+      // non mostra schermata vuota/spinner per i 3-6s (o piu') che l'Apps
+      // Script Web App impiega a rispondere: il fetch sotto sovrascrive tutto
+      // appena arriva la risposta vera.
+      const cached = loadCache();
+      if (cached) {
+        allMatches = cached.matches;
+        players = cached.players;
+        backendHasRoster = cached.backendHasRoster;
+        loadedOnce = true;
+        updateAddPlayerAvailability();
+        updateUI();
+      }
+
       loadData();
 
-      // Auto-refresh ogni 10 secondi, ma senza accodare richieste: con risposte
-      // che possono durare oltre un minuto si accumulerebbero a decine.
+      // Auto-refresh ogni 20 secondi, ma senza accodare richieste: con risposte
+      // che possono durare oltre un minuto si accumulerebbero a decine. In
+      // pausa quando il tab non e' visibile (nessuno guarda, non serve
+      // interrogare l'Apps Script ogni 20s per niente), con un refresh
+      // immediato al ritorno cosi' i dati non restano indietro troppo a lungo.
       setInterval(() => {
-        if (inFlight === 0) loadData();
-      }, 10000);
+        if (inFlight === 0 && document.visibilityState === 'visible') loadData();
+      }, 20000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && inFlight === 0) loadData();
+      });
     });
   </script>
 </body>

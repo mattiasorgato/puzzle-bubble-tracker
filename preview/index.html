@@ -783,6 +783,14 @@
       margin-bottom: 0.5rem;
     }
 
+    /* Nel titolo di una card matchup il quadratino dice di chi e' la card, con
+       lo stesso colore che il giocatore ha in legenda e nelle linee. */
+    .chart-title .legend-swatch {
+      display: inline-block;
+      margin-right: 0.45rem;
+      vertical-align: -1px;
+    }
+
     .chart-note {
       font-size: 0.78rem;
       color: var(--text-muted);
@@ -1923,6 +1931,15 @@
       return out;
     }
 
+    // Altezza comune dei tre andamenti: quella che serve alla classifica, una
+    // fascia da 26px per posizione. Rating e win rate hanno altrettanti nomi da
+    // impilare sul bordo destro, e a 150-170px dodici etichette finivano una
+    // sull'altra; in piu' la card resta comunque alta quanto la piu' alta del
+    // carosello, quindi un grafico piu' basso lasciava solo un vuoto sotto.
+    function linePlotHeight() {
+      return Math.max(180, (activeRoster.length - 1) * 26);
+    }
+
     // Struttura comune dei tre andamenti (classifica, rating, win rate): cambia
     // solo cosa si legge sull'asse Y. Tenerli un'unica funzione garantisce che
     // restino confrontabili a vista — stessa griglia, stessi colori, stesse
@@ -1991,7 +2008,9 @@
 
       const labelYs = spreadLabels(
         drawn.map(s => s.points[s.points.length - 1].y),
-        12, padTop + 4, padTop + plotH
+        // 14px per un testo da 11: il minimo perche' due nomi impilati non si
+        // tocchino. Lo spazio c'e', perche' l'altezza cresce con i giocatori.
+        14, padTop + 4, padTop + plotH
       );
 
       const series = drawn.map(({ player, points }, seriesIndex) => {
@@ -2059,7 +2078,7 @@
         },
         ticks: Array.from({ length: positions }, (_, k) => ({ value: k + 1, label: String(k + 1) })),
         invert: true,
-        plotH: Math.max(26, (positions - 1) * 26),
+        plotH: linePlotHeight(),
         formatValue: v => `${v}° posto`,
         note: 'La prima posizione è in alto.'
       });
@@ -2093,7 +2112,7 @@
         valueOf: (entry, player) => (entry.ranking.includes(player) ? entry.scores.get(player) : null),
         ticks,
         invert: false,
-        plotH: 170,
+        plotH: linePlotHeight(),
         formatValue: v => `${Math.round(v)} Rating`,
         note: 'Punti guadagnati e persi, non solo la posizione.'
       });
@@ -2112,7 +2131,7 @@
         },
         ticks: [0, 25, 50, 75, 100].map(v => ({ value: v, label: `${v}%` })),
         invert: false,
-        plotH: 150,
+        plotH: linePlotHeight(),
         formatValue: v => `${v.toFixed(0)}% vittorie`,
         note: 'Percentuale calcolata su tutte le partite giocate fino a quel giorno.'
       });
@@ -2160,26 +2179,35 @@
       const padTop = 8;
       const padBottom = 24;
       const max = Math.max(...days.map(d => d.total));
-      const padLeft = Math.max(22, String(max).length * 7 + 12);
+
+      // La scala arriva alla prima tacca SOPRA il massimo, come negli
+      // andamenti: fermarsi al massimo lasciava la barra piu' alta oltre
+      // l'ultima riga etichettata, senza un valore a cui confrontarla. Le
+      // tacche sono conteggi, quindi solo interi; il minimo di 4 evita passi
+      // frazionari quando le partite sono pochissime.
+      const ticks = niceTicks(0, Math.max(max, 4)).filter(Number.isInteger);
+      const top = ticks[ticks.length - 1];
+
+      const padLeft = Math.max(22, String(top).length * 7 + 12);
       const plotW = Math.max(20, width - padLeft - 6);
-      const plotH = 150;
+      // Su mobile una giornata e' una barra di pochi pixel: l'altezza e' l'unica
+      // dimensione da cui i segmenti di ciascun giocatore possono prendere spazio.
+      const plotH = 200;
       const height = padTop + plotH + padBottom;
 
-      const unit = plotH / max;
+      const unit = plotH / top;
       const slot = plotW / days.length;
       // 2px di respiro tra barre adiacenti, e un tetto alla larghezza: con due
       // sole giornate barre da mezzo grafico sembrerebbero un'altra cosa.
       const barW = Math.max(3, Math.min(30, slot - 2));
 
-      const tickStep = Math.max(1, Math.ceil(max / 4));
-      const gridLines = [];
-      for (let v = 0; v <= max; v += tickStep) {
+      const gridLines = ticks.map(v => {
         const y = padTop + plotH - v * unit;
-        gridLines.push(`<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${padLeft + plotW}" y2="${y.toFixed(1)}"
+        return `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${padLeft + plotW}" y2="${y.toFixed(1)}"
           stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
           <text x="${padLeft - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11"
-            style="fill: var(--text-muted)">${v}</text>`);
-      }
+            style="fill: var(--text-muted)">${v}</text>`;
+      });
 
       const bars = days.map((entry, i) => {
         const x = padLeft + i * slot + (slot - barW) / 2;
@@ -2259,11 +2287,114 @@
       });
     }
 
-    // Due caroselli distinti, uno per famiglia. Dentro un carosello si scorre da
-    // un grafico all'altro; le due famiglie restano una sopra l'altra, perche'
+    // Testa a testa: Map giocatore -> Map avversario -> { wins, losses }, dal
+    // punto di vista del primo. Contano solo le partite il cui vincitore e' uno
+    // dei due, come nel replay del rating: le altre sono righe da correggere.
+    function headToHead() {
+      const table = new Map();
+
+      const record = (player, opponent) => {
+        if (!table.has(player)) table.set(player, new Map());
+        const row = table.get(player);
+        if (!row.has(opponent)) row.set(opponent, { wins: 0, losses: 0 });
+        return row.get(opponent);
+      };
+
+      allMatches.forEach(({ giocatore1, giocatore2, vincitore }) => {
+        if (!giocatore1 || !giocatore2 || giocatore1 === giocatore2) return;
+        if (vincitore !== giocatore1 && vincitore !== giocatore2) return;
+
+        const loser = vincitore === giocatore1 ? giocatore2 : giocatore1;
+        record(vincitore, loser).wins++;
+        record(loser, vincitore).losses++;
+      });
+
+      return table;
+    }
+
+    // Ordine dei matchup, dal peggiore: sulla percentuale prudente
+    // (vittorie + 1) / (partite + 2), non su quella grezza. Uno 0-1 vale 0%
+    // quanto uno 0-10 ma dice molto meno: cosi' i matchup con una o due partite
+    // scivolano verso il centro invece di scavalcare quelli persi davvero.
+    function matchupScore({ wins, losses }) {
+      return (wins + 1) / (wins + losses + 2);
+    }
+
+    // Matchup di un giocatore: una barra per avversario, vittorie a sinistra e
+    // sconfitte a destra, quindi la parte verde e' la sua percentuale. In cima
+    // gli avversari contro cui va peggio. La linea a meta' e' il pareggio: dice
+    // a colpo d'occhio se un matchup e' in perdita senza leggere i numeri.
+    function renderMatchups(width, player, h2h) {
+      const title = `<span class="legend-swatch" style="background: ${playerColor(player)}"></span>${esc(player)}`;
+
+      // I nascosti spariscono anche come avversari: la legenda filtra i
+      // giocatori in tutti i grafici, non solo le card.
+      const rows = [...(h2h.get(player) || new Map()).entries()]
+        .filter(([opponent]) => !hiddenPlayers.has(opponent))
+        .map(([opponent, r]) => ({ opponent, wins: r.wins, losses: r.losses, games: r.wins + r.losses }))
+        .sort((a, b) => matchupScore(a) - matchupScore(b)
+          || b.games - a.games
+          || a.opponent.localeCompare(b.opponent));
+
+      if (rows.length === 0) {
+        return chartFigure(title, chartNote('Nessuna partita contro i giocatori selezionati.'));
+      }
+
+      const rowH = 26;
+      const barH = 14;
+      const longestName = rows.reduce((max, r) => Math.max(max, r.opponent.length), 0);
+      const padLeft = Math.min(108, longestName * CHAR_W + 10);
+      // "12-34  26%": record e percentuale, al massimo una decina di caratteri
+      const padRight = 74;
+      // Tetto alla lunghezza delle barre: su desktop arriverebbero a un metro di
+      // schermo, e il record a destra finirebbe lontanissimo dal nome.
+      const plotW = Math.max(40, Math.min(480, width - padLeft - padRight));
+      const height = rows.length * rowH;
+
+      const bars = rows.map((r, i) => {
+        const y = i * rowH + (rowH - barH) / 2;
+        const winW = (plotW * r.wins) / r.games;
+        // Lo stacco tra vittorie e sconfitte lo fa lo sfondo, come nelle barre
+        // impilate; se una delle due parti e' vuota non c'e' niente da staccare.
+        const gap = r.wins && r.losses ? 2 : 0;
+        const pct = Math.round((r.wins / r.games) * 100);
+        const tooltip = `<title>${esc(player)} contro ${esc(r.opponent)}: ${r.wins} ${r.wins === 1 ? 'vinta' : 'vinte'}, ${r.losses} ${r.losses === 1 ? 'persa' : 'perse'}</title>`;
+        const textY = (i * rowH + rowH / 2 + 4).toFixed(1);
+
+        const winBar = r.wins
+          ? `<rect x="${padLeft}" y="${y.toFixed(1)}" width="${Math.max(1, winW - gap / 2).toFixed(1)}" height="${barH}"
+              rx="2" style="fill: var(--elo-gain)">${tooltip}</rect>`
+          : '';
+        const lossBar = r.losses
+          ? `<rect x="${(padLeft + winW + gap / 2).toFixed(1)}" y="${y.toFixed(1)}"
+              width="${Math.max(1, plotW - winW - gap / 2).toFixed(1)}" height="${barH}"
+              rx="2" style="fill: var(--elo-loss)">${tooltip}</rect>`
+          : '';
+
+        return `
+          <text x="${padLeft - 8}" y="${textY}" text-anchor="end" font-size="11"
+            style="fill: var(--text-primary)">${esc(fitLabel(r.opponent, padLeft - 14))}<title>${esc(r.opponent)}</title></text>
+          ${winBar}${lossBar}
+          <text x="${padLeft + plotW + 8}" y="${textY}" font-size="11" style="fill: var(--text-primary)">${r.wins}-${r.losses}
+            <tspan style="fill: var(--text-muted)">${pct}%</tspan></text>`;
+      }).join('');
+
+      const midX = (padLeft + plotW / 2).toFixed(1);
+      const evenLine = `<line x1="${midX}" y1="2" x2="${midX}" y2="${height - 2}"
+        stroke="rgba(255,255,255,0.45)" stroke-width="1" stroke-dasharray="3 3"/>`;
+
+      return chartFigure(title,
+        svgWrap(width, height, `Matchup di ${player}: vittorie e sconfitte contro ogni avversario, dal peggiore`, bars + evenLine)
+        + chartNote('Verde: vittorie, rosso: sconfitte. In cima i matchup peggiori; con poche partite pesano meno.'));
+    }
+
+    // Caroselli distinti, uno per famiglia. Dentro un carosello si scorre da
+    // un grafico all'altro; le famiglie restano una sopra l'altra, perche'
     // sono letture diverse e non alternative fra cui scegliere. I grafici di uno
     // stesso carosello sono tutti della stessa forma, cosi' scorrere da uno
     // all'altro cambia il dato e non il modo di leggerlo.
+    // `charts` e' una lista fissa o, per i matchup, una funzione: li' c'e' una
+    // card per giocatore, e la lista segue la rosa e la legenda.
     const CHART_GROUPS = [
       {
         id: 'standing',
@@ -2281,8 +2412,21 @@
           { title: 'Presenze per giorno', render: (w) => renderPresencePerDay(w) },
           { title: 'Vittorie per giorno', render: (w) => renderWinsPerDay(w) }
         ]
+      },
+      {
+        id: 'matchups',
+        title: '⚔️ Peggiori matchup',
+        emptyNote: 'Nessun giocatore selezionato: riaccendine uno dalla legenda.',
+        charts: (ctx) => visiblePlayers().map(player => ({
+          title: player,
+          render: (w) => renderMatchups(w, player, ctx.headToHead)
+        }))
       }
     ];
+
+    function groupCharts(group, ctx) {
+      return typeof group.charts === 'function' ? group.charts(ctx) : group.charts;
+    }
 
     // Il grafico visibile di ciascun carosello sopravvive al refresh automatico:
     // rigenerare l'HTML ogni 10 secondi riporterebbe l'utente al primo mentre
@@ -2301,13 +2445,18 @@
       return document.querySelector(`.carousel[data-group="${groupId}"]`);
     }
 
+    // Le card si contano nel DOM: per i matchup il loro numero dipende dalla
+    // legenda, quindi nessuna lista fissa lo saprebbe.
+    function cardCount(root) {
+      return root.querySelectorAll('.carousel-card').length;
+    }
+
     function goToCard(groupId, index, smooth) {
       const root = carouselRoot(groupId);
-      const group = CHART_GROUPS.find(g => g.id === groupId);
-      if (!root || !group) return;
+      if (!root) return;
 
       const from = carouselCard[groupId] || 0;
-      const to = wrapIndex(index, group.charts.length);
+      const to = wrapIndex(index, cardCount(root));
 
       carouselCard[groupId] = to;
 
@@ -2328,8 +2477,7 @@
 
     function syncCarousel(groupId) {
       const root = carouselRoot(groupId);
-      const group = CHART_GROUPS.find(g => g.id === groupId);
-      if (!root || !group) return;
+      if (!root) return;
 
       const index = carouselCard[groupId] || 0;
 
@@ -2344,13 +2492,24 @@
     }
 
     function renderCarousel(group, width, ctx) {
+      const charts = groupCharts(group, ctx);
+
+      if (charts.length === 0) {
+        return `
+          <section class="chart-group">
+            <h3 class="group-title">${group.title}</h3>
+            ${chartNote(group.emptyNote)}
+          </section>
+        `;
+      }
+
       // La larghezza di una card e' quella del contenitore: le card stanno
       // affiancate nel track e se ne vede una per volta.
-      const cards = group.charts.map(chart => `
+      const cards = charts.map(chart => `
         <article class="carousel-card" aria-label="${esc(chart.title)}">${chart.render(width, ctx)}</article>
       `).join('');
 
-      const dots = group.charts.map((chart, i) => `
+      const dots = charts.map((chart, i) => `
         <button type="button" class="carousel-dot" data-index="${i}"
           aria-label="Vai a ${esc(chart.title)}"></button>
       `).join('');
@@ -2375,6 +2534,10 @@
       if (!root) return;
 
       const track = root.querySelector('.carousel-track');
+
+      // Spegnere giocatori dalla legenda toglie card ai matchup: se quella che
+      // si stava guardando non c'e' piu', si resta sull'ultima rimasta.
+      carouselCard[group.id] = Math.min(carouselCard[group.id] || 0, cardCount(root) - 1);
 
       // Ripristino senza animazione: l'HTML e' appena stato ricreato, quindi non
       // c'e' nessuno spostamento da mostrare, solo una posizione da tenere.
@@ -2477,8 +2640,9 @@
       }
 
       // Un unico replay per i tre andamenti: rifarlo per ogni grafico darebbe le
-      // stesse identiche cifre al triplo del costo.
-      const ctx = { byDay: dailyRankings() };
+      // stesse identiche cifre al triplo del costo. Idem il testa a testa, che
+      // serve a tutte le card dei matchup.
+      const ctx = { byDay: dailyRankings(), headToHead: headToHead() };
 
       // Una sola legenda in cima: e' la stessa per tutti i grafici, e ripeterla
       // dentro ogni card ruberebbe spazio senza aggiungere nulla.

@@ -24,3 +24,6 @@ $RECYCLE.BIN/
 
 # Built Visual Studio Code Extensions
 *.vsix
+### Dati locali
+# Snapshot del foglio per tools/compare-ratings.mjs: contiene i nomi dei colleghi
+tools/data/

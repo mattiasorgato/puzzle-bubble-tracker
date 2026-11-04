@@ -347,16 +347,18 @@
   // Delta del punteggio per partita e per giocatore, per lo storico:
   // Map partita -> Map nome -> delta. Per ogni giocatore, il delta e' il suo
   // punteggio con la giornata chiusa fino a quella partita compresa, meno il
-  // punteggio precedente (a fine dell'ultima giornata attiva per la prima
-  // partita del giorno, dopo la sua partita precedente per le altre). La somma
-  // dei delta di una giornata e' quindi la variazione tra ieri e oggi.
+  // punteggio precedente (dopo la sua partita precedente; per la prima partita
+  // del giorno, il punteggio di oggi come se non avesse giocato). La crescita
+  // giornaliera della RD la paga chiunque, giochi o no: addebitarla alla prima
+  // partita mostrava vittorie a ±0 o in negativo. Per questo la somma dei
+  // delta di una giornata non e' esattamente la variazione tra ieri e oggi.
   function matchDeltas(ordered, roster, config = RATING_CONFIG) {
     const deltas = new Map();
     let state = new Map();
 
     periodsOf(ordered, roster).forEach(({ games }, period) => {
       const last = new Map();
-      const before = name => (last.has(name) ? last.get(name) : viewOf(state, period - 1, name, config).score);
+      const before = name => (last.has(name) ? last.get(name) : viewOf(state, period, name, config).score);
       let closed = state;
 
       games.forEach((game, i) => {

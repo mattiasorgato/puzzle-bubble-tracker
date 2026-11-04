@@ -9,7 +9,7 @@
   'use strict';
 
   const RATING_CONFIG = Object.freeze({
-    INITIAL_RATING: 1000,       // centro della scala mostrata (Glickman usa 1500)
+    INITIAL_RATING: 1200,       // centro della scala mostrata (Glickman usa 1500)
     INITIAL_RD: 350,
     INITIAL_VOLATILITY: 0.06,
     TAU: 0.5,                   // vincola quanto in fretta cambia la volatilita'

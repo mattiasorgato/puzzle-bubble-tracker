@@ -1,11 +1,11 @@
-// Confronto predittivo tra i sistemi di classifica di preview/: Glicko-2
+// Confronto predittivo tra i sistemi di classifica della pagina: Glicko-2
 // (rating.js) ed Elo classico (elo.js), e le quattro classifiche in prova.
 //
 //   node tools/compare-ratings.mjs tools/data/snapshot.json
 //   node tools/compare-ratings.mjs --synthetic
 //
 // Lo snapshot e' la risposta di doGet della Web App ({ success, matches,
-// players }), scaricata con curl dall'APPS_SCRIPT_URL di preview/index.html.
+// players }), scaricata con curl dall'APPS_SCRIPT_URL di index.html.
 //
 // Metodo "walk-forward": ogni giornata viene prevista con i rating di fine
 // giornata precedente, poi chiusa. Nessun sistema vede il risultato che deve
@@ -15,8 +15,8 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
-const Rating = require('../preview/rating.js');
-const Elo = require('../preview/elo.js');
+const Rating = require('../rating.js');
+const Elo = require('../elo.js');
 
 const TAUS = [0.3, 0.5, 0.8, 1.2];
 const BOOTSTRAP_SAMPLES = 1000;

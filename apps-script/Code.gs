@@ -7,6 +7,8 @@
  *   2. doPost accetta { action: "addPlayer", nome } e aggiunge una riga alla
  *      Leaderboard. Senza `action` la POST resta una partita, esattamente come
  *      prima, quindi una pagina vecchia continua a funzionare con questo script.
+ *   3. doPost accetta { action: "addMatches", data, matches: [...] } e scrive
+ *      tutte le partite in un'unica chiamata (usato dalla pagina /preview/).
  *
  * COME INSTALLARLO (interfaccia in italiano)
  *   1. Nel foglio: Estensioni > Apps Script.
@@ -253,17 +255,43 @@ function formulaTemplateRow_(sheet, lastRow, skipCol) {
 }
 
 function addMatch_(body) {
+  return addMatches_({ data: body.data, matches: [body] });
+}
+
+/** La partita ripulita, o una stringa con l'errore se non e' valida. */
+function cleanMatch_(match) {
+  var g1 = String(match.giocatore1 == null ? '' : match.giocatore1).trim();
+  var g2 = String(match.giocatore2 == null ? '' : match.giocatore2).trim();
+  var vincitore = String(match.vincitore == null ? '' : match.vincitore).trim();
+
+  if (!g1 || !g2) return 'Servono due giocatori.';
+  if (g1 === g2) return 'I due giocatori devono essere diversi.';
+  if (vincitore !== g1 && vincitore !== g2) return 'Il vincitore deve essere uno dei due giocatori.';
+
+  return { giocatore1: g1, giocatore2: g2, vincitore: vincitore };
+}
+
+/**
+ * Piu' partite in una sola chiamata, tutte con la stessa data: { action:
+ * "addMatches", data, matches: [{ giocatore1, giocatore2, vincitore }] }.
+ * Se anche una sola non e' valida non si scrive niente: una serie salvata a
+ * meta' andrebbe poi ripulita a mano sul foglio. Le righe partono con un unico
+ * setValues, che e' cio' che rende la chiamata veloce quanto una partita sola.
+ */
+function addMatches_(body) {
   var sheet = matchSheet_();
   if (!sheet) return { success: false, error: 'Foglio delle partite non trovato.' };
 
-  var g1 = String(body.giocatore1 == null ? '' : body.giocatore1).trim();
-  var g2 = String(body.giocatore2 == null ? '' : body.giocatore2).trim();
-  var vincitore = String(body.vincitore == null ? '' : body.vincitore).trim();
+  var list = body.matches;
+  if (!Array.isArray(list) || !list.length) return { success: false, error: 'Nessuna partita da salvare.' };
 
-  if (!g1 || !g2) return { success: false, error: 'Servono due giocatori.' };
-  if (g1 === g2) return { success: false, error: 'I due giocatori devono essere diversi.' };
-  if (vincitore !== g1 && vincitore !== g2) {
-    return { success: false, error: 'Il vincitore deve essere uno dei due giocatori.' };
+  var matches = [];
+  for (var m = 0; m < list.length; m++) {
+    var clean = cleanMatch_(list[m] || {});
+    if (typeof clean === 'string') {
+      return { success: false, error: list.length > 1 ? 'Partita ' + (m + 1) + ': ' + clean : clean };
+    }
+    matches.push(clean);
   }
 
   var headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
@@ -280,20 +308,24 @@ function addMatch_(body) {
   try {
     var row = sheet.getLastRow() + 1;
     var width = Math.max(4, sheet.getLastColumn());
-    var values = new Array(width);
-    for (var i = 0; i < width; i++) values[i] = '';
 
-    // La data resta la stringa gg/mm/aaaa che manda la pagina: con il foglio in
-    // locale italiano Sheets la interpreta come data vera. Scrivere un ISO la
-    // lascerebbe come testo, disallineata dalle altre righe.
-    values[cols.data === -1 ? 0 : cols.data] = body.data;
-    values[cols.giocatore1 === -1 ? 1 : cols.giocatore1] = g1;
-    values[cols.giocatore2 === -1 ? 2 : cols.giocatore2] = g2;
-    values[cols.vincitore === -1 ? 3 : cols.vincitore] = vincitore;
+    var rows = matches.map(function (match) {
+      var values = new Array(width);
+      for (var i = 0; i < width; i++) values[i] = '';
 
-    sheet.getRange(row, 1, 1, width).setValues([values]);
+      // La data resta la stringa gg/mm/aaaa che manda la pagina: con il foglio in
+      // locale italiano Sheets la interpreta come data vera. Scrivere un ISO la
+      // lascerebbe come testo, disallineata dalle altre righe.
+      values[cols.data === -1 ? 0 : cols.data] = body.data;
+      values[cols.giocatore1 === -1 ? 1 : cols.giocatore1] = match.giocatore1;
+      values[cols.giocatore2 === -1 ? 2 : cols.giocatore2] = match.giocatore2;
+      values[cols.vincitore === -1 ? 3 : cols.vincitore] = match.vincitore;
+      return values;
+    });
 
-    return { success: true };
+    sheet.getRange(row, 1, rows.length, width).setValues(rows);
+
+    return { success: true, saved: rows.length };
   } finally {
     lock.releaseLock();
   }
@@ -306,6 +338,7 @@ function doPost(e) {
     // Senza `action` e' una partita: e' cosi' che si comportava lo script
     // precedente, e una pagina non aggiornata continua a funzionare.
     if (body.action === 'addPlayer') return json_(addPlayer_(body.nome));
+    if (body.action === 'addMatches') return json_(addMatches_(body));
 
     return json_(addMatch_(body));
   } catch (err) {

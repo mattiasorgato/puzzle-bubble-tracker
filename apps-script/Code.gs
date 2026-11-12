@@ -8,7 +8,7 @@
  *      Leaderboard. Senza `action` la POST resta una partita, esattamente come
  *      prima, quindi una pagina vecchia continua a funzionare con questo script.
  *   3. doPost accetta { action: "addMatches", data, matches: [...] } e scrive
- *      tutte le partite in un'unica chiamata (usato dalla pagina /preview/).
+ *      tutte le partite in un'unica chiamata.
  *
  * COME INSTALLARLO (interfaccia in italiano)
  *   1. Nel foglio: Estensioni > Apps Script.

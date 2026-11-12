@@ -331,46 +331,88 @@
       margin-bottom: 1.25rem;
     }
 
-    .player-row {
-      display: flex;
-      align-items: flex-end;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
     .player-field {
       flex: 1;
       min-width: 0;
     }
 
-    .winner-pick {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+    /* Incontri: giocatore, vittorie, vittorie, giocatore. Il modale si allarga
+       quel che serve a tenere i nomi leggibili su una riga sola. */
+    #matchModal .modal {
+      max-width: 640px;
+    }
+
+    .series-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 4.5rem auto 4.5rem minmax(0, 1fr) 2rem;
+      grid-template-areas: "p1 s1 dash s2 p2 rm";
+      align-items: stretch;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .series-p1 { grid-area: p1; }
+    .series-s1 { grid-area: s1; }
+    .series-dash { grid-area: dash; align-self: center; color: var(--text-muted); font-size: 1.5rem; }
+    .series-s2 { grid-area: s2; }
+    .series-p2 { grid-area: p2; }
+    .series-remove { grid-area: rm; align-self: center; }
+
+    /* Il punteggio e' il dato che si controlla a colpo d'occhio prima di
+       salvare: cifre grandi, nel font del titolo, senza le frecce del campo
+       numerico che in un riquadro stretto si mangiavano mezza cifra. */
+    .series-row input {
+      text-align: center;
+      padding: 0.25rem;
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    .series-row input::-webkit-outer-spin-button,
+    .series-row input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
       margin: 0;
-      padding: 0.75rem;
-      border: 1px solid rgba(0, 229, 255, 0.3);
-      border-radius: 6px;
-      font-size: 0.9rem;
+    }
+
+    .series-remove {
+      background: none;
+      border: none;
       color: var(--text-muted);
-      background: var(--bg-void);
-      cursor: pointer;
-      white-space: nowrap;
-      max-width: 45%;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding: 0.25rem;
+      line-height: 1;
     }
 
-    .winner-pick input[type="radio"] {
-      width: auto;
-      margin: 0;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-
-    .winner-pick:has(input:checked) {
-      border-color: var(--neon-pink);
+    .series-remove:hover {
       background: rgba(255, 46, 151, 0.12);
+      color: var(--neon-pink);
+      box-shadow: none;
+    }
+
+    /* Con una riga sola non c'e' niente da togliere; visibility e non display,
+       cosi' la colonna resta e la riga non cambia larghezza. */
+    .series-row:only-child .series-remove {
+      visibility: hidden;
+    }
+
+    .btn-add-series {
+      width: 100%;
+      margin-top: 0.25rem;
+      padding: 0.75rem 1rem;
+      border-style: dashed;
+      font-size: 0.85rem;
+    }
+
+    .series-summary {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin: 1rem 0 0.5rem;
+      min-height: 1.2em;
+    }
+
+    .series-summary.problem {
       color: var(--neon-pink);
     }
 
@@ -1058,16 +1100,19 @@
         padding: 0.5rem;
       }
 
-      /* Su schermo stretto select e radio vanno impilati */
-      .player-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.5rem;
+      /* Su schermo stretto ogni giocatore ha la sua riga, col punteggio accanto
+         al nome invece che in mezzo ai due */
+      .series-row {
+        grid-template-columns: minmax(0, 1fr) 4.5rem 2rem;
+        grid-template-areas:
+          "p1 s1 rm"
+          "p2 s2 rm";
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(0, 229, 255, 0.15);
       }
 
-      .winner-pick {
-        max-width: none;
-        justify-content: center;
+      .series-dash {
+        display: none;
       }
     }
   </style>
@@ -1097,33 +1142,17 @@
         </div>
 
         <form id="matchForm">
-          <p class="modal-hint">Scegli i due giocatori e segna chi ha vinto. La data viene registrata automaticamente.</p>
+          <p class="modal-hint">Un incontro per riga: i due giocatori e le vittorie di ciascuno. Ogni vittoria diventa una partita sul foglio, con la data di oggi.</p>
 
-          <!-- Il radio indica lo slot; al submit viene tradotto nel nome del
-               giocatore selezionato, che e' cio' che il foglio registra. -->
-          <div class="player-row">
-            <div class="player-field">
-              <label for="player1">Giocatore 1</label>
-              <select id="player1" required></select>
-            </div>
-            <label class="winner-pick">
-              <input type="radio" name="winner" value="1" required>
-              Vincitore
-            </label>
-          </div>
+          <!-- Le righe le crea addSeriesRow: il foglio riceve una partita per
+               ogni vittoria, vedi expandSeries. -->
+          <div id="seriesList"></div>
 
-          <div class="player-row">
-            <div class="player-field">
-              <label for="player2">Giocatore 2</label>
-              <select id="player2" required></select>
-            </div>
-            <label class="winner-pick">
-              <input type="radio" name="winner" value="2">
-              Vincitore
-            </label>
-          </div>
+          <button type="button" id="addSeriesBtn" class="btn-add-series">➕ Aggiungi incontro</button>
 
-          <button type="submit" class="btn-submit">Salva Partita</button>
+          <p id="seriesSummary" class="series-summary" aria-live="polite"></p>
+
+          <button type="submit" class="btn-submit">Salva Partite</button>
         </form>
       </div>
     </div>
@@ -1360,10 +1389,12 @@
     }
 
     // Aggiorna dropdown giocatori, preservando la selezione in corso
-    function updatePlayerSelects() {
-      const select1 = document.getElementById('player1');
-      const select2 = document.getElementById('player2');
+    function playerOptions() {
+      return '<option value="">-- Seleziona --</option>'
+        + players.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    }
 
+    function updatePlayerSelects() {
       // Ricostruire le select azzera cio' che l'utente ha appena scelto, e
       // l'auto-refresh scatta ogni 10 secondi: se la lista giocatori non e'
       // cambiata non c'e' niente da rifare.
@@ -1373,17 +1404,13 @@
 
       if (unchanged) return;
 
-      const prev1 = select1.value;
-      const prev2 = select2.value;
+      const options = playerOptions();
 
-      const options = '<option value="">-- Seleziona --</option>'
-        + players.map(p => `<option value="${p}">${p}</option>`).join('');
-
-      select1.innerHTML = options;
-      select2.innerHTML = options;
-
-      select1.value = players.includes(prev1) ? prev1 : '';
-      select2.value = players.includes(prev2) ? prev2 : '';
+      document.querySelectorAll('#seriesList select').forEach(select => {
+        const prev = select.value;
+        select.innerHTML = options;
+        select.value = players.includes(prev) ? prev : '';
+      });
 
       renderedPlayers = players;
 
@@ -2686,18 +2713,102 @@
     const matchForm = document.getElementById('matchForm');
     const submitBtn = matchForm.querySelector('.btn-submit');
 
-    // Il salvataggio resta bloccato finche' la partita non e' plausibile: due
-    // giocatori entrambi scelti e diversi tra loro, piu' un vincitore.
+    const seriesList = document.getElementById('seriesList');
+    const seriesSummary = document.getElementById('seriesSummary');
+
+    // Tetto per lato: un 33 al posto di un 3 scriverebbe trenta partite
+    // inventate sul foglio.
+    const MAX_WINS = 30;
+
+    function addSeriesRow() {
+      const row = document.createElement('div');
+      row.className = 'series-row';
+      row.innerHTML = `
+        <select class="series-p1" aria-label="Giocatore 1">${playerOptions()}</select>
+        <input class="series-s1" type="number" min="0" max="${MAX_WINS}" step="1" inputmode="numeric" placeholder="0" aria-label="Vittorie giocatore 1">
+        <span class="series-dash">–</span>
+        <input class="series-s2" type="number" min="0" max="${MAX_WINS}" step="1" inputmode="numeric" placeholder="0" aria-label="Vittorie giocatore 2">
+        <select class="series-p2" aria-label="Giocatore 2">${playerOptions()}</select>
+        <button type="button" class="series-remove" aria-label="Rimuovi incontro">✕</button>`;
+      seriesList.appendChild(row);
+      updateSubmitState();
+      return row;
+    }
+
+    function resetSeries() {
+      seriesList.innerHTML = '';
+      addSeriesRow();
+    }
+
+    // Una riga lasciata del tutto vuota si ignora: e' quella appena aggiunta e
+    // non ancora usata, non un errore. Una compilata a meta' invece blocca il
+    // salvataggio, perche' e' quasi certamente una partita dimenticata.
+    function readSeries() {
+      return Array.from(seriesList.querySelectorAll('.series-row')).map((row, i) => {
+        const p1 = row.querySelector('.series-p1').value;
+        const p2 = row.querySelector('.series-p2').value;
+        const raw1 = row.querySelector('.series-s1').value.trim();
+        const raw2 = row.querySelector('.series-s2').value.trim();
+        const w1 = Number(raw1 || 0);
+        const w2 = Number(raw2 || 0);
+        const isWins = n => Number.isInteger(n) && n >= 0 && n <= MAX_WINS;
+
+        let problem = null;
+        if (!p1 || !p2) problem = 'scegli entrambi i giocatori';
+        else if (p1 === p2) problem = 'i due giocatori devono essere diversi';
+        else if (!isWins(w1) || !isWins(w2)) problem = `le vittorie vanno da 0 a ${MAX_WINS}`;
+        else if (w1 + w2 === 0) problem = 'inserisci il punteggio';
+
+        return {
+          index: i + 1,
+          p1, p2, w1, w2, problem,
+          blank: !p1 && !p2 && !raw1 && !raw2
+        };
+      }).filter(s => !s.blank);
+    }
+
+    // 3-1 diventa 4 partite: si alterna partendo da chi ne ha vinte di piu', e
+    // le vittorie in eccesso vanno in coda (V P V V). L'Elo classico si muove
+    // partita per partita, quindi l'ordine conta: alternare evita che un
+    // blocco di vittorie di fila pesi diversamente da com'e' andata davvero.
+    // Glicko-2 ragiona per giornata e all'ordine non bada.
+    function expandSeries({ p1, p2, w1, w2 }) {
+      const [lead, trail, nLead, nTrail] = w1 >= w2 ? [p1, p2, w1, w2] : [p2, p1, w2, w1];
+      const winners = [];
+
+      for (let i = 0; i < nLead; i++) {
+        winners.push(lead);
+        if (i < nTrail) winners.push(trail);
+      }
+
+      return winners.map(vincitore => ({ giocatore1: p1, giocatore2: p2, vincitore }));
+    }
+
+    // Il salvataggio resta bloccato finche' ogni incontro compilato non e'
+    // plausibile e ce n'e' almeno uno.
     function updateSubmitState() {
       // Durante il salvataggio il pulsante lo governa il submit, non questa:
       // l'auto-refresh in background non deve riabilitarlo a meta' richiesta.
       if (saving) return;
 
-      const g1 = document.getElementById('player1').value;
-      const g2 = document.getElementById('player2').value;
-      const winner = matchForm.querySelector('input[name="winner"]:checked');
+      const series = readSeries();
+      const broken = series.find(s => s.problem);
+      const games = series.reduce((sum, s) => sum + (s.problem ? 0 : s.w1 + s.w2), 0);
 
-      submitBtn.disabled = !g1 || !g2 || g1 === g2 || !winner;
+      if (broken) {
+        seriesSummary.textContent = `Incontro ${broken.index}: ${broken.problem}.`;
+      } else if (series.length) {
+        seriesSummary.textContent = `${series.length} ${series.length === 1 ? 'incontro' : 'incontri'} · `
+          + `${games} ${games === 1 ? 'partita' : 'partite'}`;
+      } else {
+        seriesSummary.textContent = '';
+      }
+      seriesSummary.classList.toggle('problem', Boolean(broken));
+
+      submitBtn.disabled = !series.length || Boolean(broken);
+      submitBtn.textContent = !broken && games
+        ? `Salva ${games} ${games === 1 ? 'partita' : 'partite'}`
+        : 'Salva Partite';
     }
 
     function openModal() {
@@ -2706,8 +2817,19 @@
       // orchestrazione JS necessaria qui.
       matchModal.hidden = false;
       updateSubmitState();
-      document.getElementById('player1').focus();
+      seriesList.querySelector('select').focus();
     }
+
+    document.getElementById('addSeriesBtn').addEventListener('click', () => {
+      addSeriesRow().querySelector('select').focus();
+    });
+
+    seriesList.addEventListener('click', (e) => {
+      const remove = e.target.closest('.series-remove');
+      if (!remove) return;
+      remove.closest('.series-row').remove();
+      updateSubmitState();
+    });
 
     function closeModal() {
       // Gia' chiuso, o chiusura gia' in corso: evita di riavviare l'animazione
@@ -2717,8 +2839,7 @@
       const finish = () => {
         matchModal.hidden = true;
         matchModal.classList.remove('closing');
-        matchForm.reset();
-        updateSubmitState();
+        resetSeries();
       };
 
       if (prefersReducedMotion()) {
@@ -2973,9 +3094,10 @@
       btn.addEventListener('click', () => switchTab(panel.id));
     });
 
-    // Copre sia i due select sia i radio
+    // change per i select, input per i punteggi mentre si digitano
     matchForm.addEventListener('change', updateSubmitState);
-    updateSubmitState();
+    matchForm.addEventListener('input', updateSubmitState);
+    resetSeries();
 
     // Click sullo sfondo (non sul riquadro) e tasto Esc chiudono
     matchModal.addEventListener('click', (e) => {
@@ -3007,29 +3129,22 @@
     matchForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const winnerSlot = document.querySelector('input[name="winner"]:checked');
+      // Durante l'animazione di chiusura le righe appena salvate sono ancora
+      // nel form: un secondo invio le scriverebbe di nuovo.
+      if (saving || matchModal.classList.contains('closing')) return;
 
-      if (!winnerSlot) {
-        showMessage('Seleziona il vincitore', 'error');
+      const series = readSeries();
+      const broken = series.find(s => s.problem);
+
+      if (!series.length || broken) {
+        showMessage(broken ? `Incontro ${broken.index}: ${broken.problem}` : 'Inserisci almeno un incontro', 'error');
         return;
       }
 
-      const giocatore1 = document.getElementById('player1').value;
-      const giocatore2 = document.getElementById('player2').value;
-
-      // Validazione base
-      if (!giocatore1 || !giocatore2 || giocatore1 === giocatore2) {
-        showMessage('Seleziona due giocatori diversi', 'error');
-        return;
-      }
-
-      const formData = {
-        data: todayLocale(),
-        giocatore1,
-        giocatore2,
-        // Il foglio registra il nome del vincitore, non la sua posizione
-        vincitore: winnerSlot.value === '1' ? giocatore1 : giocatore2
-      };
+      // Una sola data per tutto l'invio: e' la stessa giornata, e il foglio la
+      // riceve una volta sola invece che ripetuta in ogni partita.
+      const data = todayLocale();
+      const matches = series.flatMap(expandSeries);
 
       // Il salvataggio su Apps Script puo' essere lento: senza questo, un
       // doppio click scrive due volte la stessa partita sul foglio.
@@ -3047,7 +3162,7 @@
           // richiesta e' simple e parte senza preflight; il corpo resta lo
           // stesso JSON, che lo script legge da e.postData.contents.
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({ action: 'addMatches', data, matches }),
           // Senza timeout una POST appesa lascerebbe il pulsante su
           // "Salvataggio..." per sempre, senza modo di riprovare.
           signal: AbortSignal.timeout(90000)
@@ -3056,14 +3171,14 @@
         const result = parseSheetResponse(await response.text(), response);
 
         if (result.success) {
-          showMessage('✅ Partita salvata!', 'success');
+          showMessage(matches.length === 1 ? '✅ Partita salvata!' : `✅ ${matches.length} partite salvate!`, 'success');
           closeModal();
 
           // Aggiornamento ottimistico: il foglio ha gia' confermato il
           // successo, non serve un secondo giro di attesa (altri 3-6s+) solo
           // per rileggere un dato che conosciamo gia'. Il refresh in
           // background (non atteso) riconcilia col foglio quando arriva.
-          allMatches.push({ ...formData });
+          allMatches.push(...matches.map(match => ({ data, ...match })));
           updateUI();
           saveCache();
           loadData();
@@ -3078,10 +3193,10 @@
           : 'Salvataggio non riuscito: ' + error.message, 'error');
       } finally {
         // In caso di errore il modale resta aperto coi dati inseriti, pronto
-        // per un altro tentativo; dopo un successo il form e' stato resettato,
-        // quindi updateSubmitState lo ritrova vuoto e tiene il pulsante spento.
+        // per un altro tentativo. Dopo un successo le righe si svuotano solo a
+        // fine animazione di chiusura: fino ad allora il submit e' fermato
+        // dal controllo su 'closing' in cima.
         saving = false;
-        submitBtn.textContent = 'Salva Partita';
         updateSubmitState();
       }
     });

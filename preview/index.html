@@ -377,28 +377,42 @@
     /* Incontri: giocatore, vittorie, vittorie, giocatore. Il modale si allarga
        quel che serve a tenere i nomi leggibili su una riga sola. */
     #matchModal .modal {
-      max-width: 560px;
+      max-width: 640px;
     }
 
     .series-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 3.5rem auto 3.5rem minmax(0, 1fr) 2rem;
+      grid-template-columns: minmax(0, 1fr) 4.5rem auto 4.5rem minmax(0, 1fr) 2rem;
       grid-template-areas: "p1 s1 dash s2 p2 rm";
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
+      align-items: stretch;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
     }
 
     .series-p1 { grid-area: p1; }
     .series-s1 { grid-area: s1; }
-    .series-dash { grid-area: dash; color: var(--text-muted); }
+    .series-dash { grid-area: dash; align-self: center; color: var(--text-muted); font-size: 1.5rem; }
     .series-s2 { grid-area: s2; }
     .series-p2 { grid-area: p2; }
-    .series-remove { grid-area: rm; }
+    .series-remove { grid-area: rm; align-self: center; }
 
+    /* Il punteggio e' il dato che si controlla a colpo d'occhio prima di
+       salvare: cifre grandi, nel font del titolo, senza le frecce del campo
+       numerico che in un riquadro stretto si mangiavano mezza cifra. */
     .series-row input {
       text-align: center;
-      padding: 0.75rem 0.25rem;
+      padding: 0.25rem;
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    .series-row input::-webkit-outer-spin-button,
+    .series-row input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
     }
 
     .series-remove {
@@ -423,6 +437,8 @@
 
     .btn-add-series {
       width: 100%;
+      margin-top: 0.25rem;
+      padding: 0.75rem 1rem;
       border-style: dashed;
       font-size: 0.85rem;
     }
@@ -430,7 +446,7 @@
     .series-summary {
       font-size: 0.85rem;
       color: var(--text-muted);
-      margin-top: 0.75rem;
+      margin: 1rem 0 0.5rem;
       min-height: 1.2em;
     }
 
@@ -1137,11 +1153,11 @@
       /* Su schermo stretto ogni giocatore ha la sua riga, col punteggio accanto
          al nome invece che in mezzo ai due */
       .series-row {
-        grid-template-columns: minmax(0, 1fr) 3.5rem 2rem;
+        grid-template-columns: minmax(0, 1fr) 4.5rem 2rem;
         grid-template-areas:
           "p1 s1 rm"
           "p2 s2 rm";
-        padding-bottom: 0.75rem;
+        padding-bottom: 1rem;
         border-bottom: 1px solid rgba(0, 229, 255, 0.15);
       }
 

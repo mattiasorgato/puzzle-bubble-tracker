@@ -1993,12 +1993,12 @@
     }
 
     // Altezza comune dei tre andamenti: quella che serve alla classifica, una
-    // fascia da 26px per posizione. Rating e win rate hanno altrettanti nomi da
+    // fascia da 52px per posizione. Rating e win rate hanno altrettanti nomi da
     // impilare sul bordo destro, e a 150-170px dodici etichette finivano una
     // sull'altra; in piu' la card resta comunque alta quanto la piu' alta del
     // carosello, quindi un grafico piu' basso lasciava solo un vuoto sotto.
     function linePlotHeight() {
-      return Math.max(180, (activeRoster.length - 1) * 26);
+      return Math.max(360, (activeRoster.length - 1) * 52);
     }
 
     // Struttura comune dei tre andamenti (classifica, rating, win rate): cambia
@@ -2253,7 +2253,7 @@
       const plotW = Math.max(20, width - padLeft - 6);
       // Su mobile una giornata e' una barra di pochi pixel: l'altezza e' l'unica
       // dimensione da cui i segmenti di ciascun giocatore possono prendere spazio.
-      const plotH = 200;
+      const plotH = 400;
       const height = padTop + plotH + padBottom;
 
       const unit = plotH / top;

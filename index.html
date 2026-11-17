@@ -682,6 +682,15 @@
       user-select: none;
     }
 
+    /* Caroselli dei grafici col tempo: lo swipe e il trascinamento servono a
+       scorrere lo storico dentro il grafico, quindi la card si cambia solo da
+       frecce e puntini. Con overflow hidden lo scrollTo del JS funziona
+       ancora, ma il dito e la rotella non spostano piu' il track. */
+    .carousel-track.locked {
+      overflow-x: hidden;
+      cursor: auto;
+    }
+
     .carousel-card {
       flex: 0 0 100%;
       min-width: 0;
@@ -841,11 +850,63 @@
 
     /* Il viewBox e' generato sulla larghezza reale del contenitore, quindi
        l'SVG va reso 1:1: senza height:auto il browser userebbe l'altezza di
-       default di 150px e schiaccerebbe il grafico. */
-    .chart-figure svg {
+       default di 150px e schiaccerebbe il grafico. Solo i figli diretti: gli
+       SVG dei grafici scorrevoli hanno misure in pixel che non vanno stirate. */
+    .chart-figure > svg {
       display: block;
       width: 100%;
       height: auto;
+    }
+
+    /* Grafico col tempo: asse Y a sinistra e nomi a destra restano fermi,
+       in mezzo scorre lo storico. All'apertura si vede l'ultimo mese. */
+    .chart-frame {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .chart-frame > svg {
+      display: block;
+      flex: none;
+    }
+
+    .chart-scroll {
+      flex: 1 1 0;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      /* Arrivati al bordo dello storico il gesto si ferma li': non deve
+         propagarsi alla pagina come "indietro" del browser. */
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 229, 255, 0.35) transparent;
+    }
+
+    .chart-scroll svg {
+      display: block;
+    }
+
+    .chart-scroll.scrollable {
+      cursor: grab;
+    }
+
+    .chart-scroll.dragging {
+      cursor: grabbing;
+      user-select: none;
+    }
+
+    .chart-scroll:focus-visible {
+      outline: 2px solid var(--neon-cyan);
+      outline-offset: 2px;
+    }
+
+    .chart-scroll::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .chart-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0, 229, 255, 0.35);
+      border-radius: 3px;
     }
 
     /* Loading & error states */
@@ -1831,21 +1892,66 @@
       return name.length > maxChars ? `${name.slice(0, maxChars - 1)}…` : name;
     }
 
-    // Indici delle etichette da mostrare su un asse. Quante ne stanno lo decide
-    // lo spazio, non un numero fisso: una "gg/mm" occupa una quarantina di
-    // pixel, e a 320px cinque date si toccherebbero fino a diventare una
-    // macchia illeggibile. Il tetto di cinque vale per gli schermi larghi, dove
-    // il limite non e' piu' lo spazio ma l'affollamento.
-    function axisTicks(count, plotW) {
-      const fits = Math.max(2, Math.floor(plotW / 58));
-      const wanted = Math.min(5, fits, count);
-      const picked = new Set();
+    // Indici delle date da mostrare sull'asse X di un grafico scorrevole.
+    // Quante ne stanno lo decide lo spazio, non un numero fisso: una "gg/mm"
+    // occupa una quarantina di pixel, e a 320px date troppo fitte diventano
+    // una macchia illeggibile. Il tetto di cinque per finestra vale per gli
+    // schermi larghi, dove il limite non e' piu' lo spazio ma l'affollamento.
+    // Si parte dall'ultima giornata e si va all'indietro: e' quella che si
+    // vede all'apertura, e deve sempre avere la sua data.
+    function dayTicks(count, step, perView) {
+      const every = Math.max(1, Math.ceil(58 / step), Math.ceil((perView - 1) / 4));
+      const picked = [];
 
-      for (let t = 0; t < wanted; t++) {
-        picked.add(wanted === 1 ? 0 : Math.round(t * (count - 1) / (wanted - 1)));
-      }
+      for (let i = count - 1; i >= 0; i -= every) picked.push(i);
 
-      return [...picked];
+      // La prima giornata e' ancorata a sinistra: entra solo se non tocca la
+      // data piu' vicina.
+      const lastPicked = picked[picked.length - 1];
+      if (lastPicked !== 0 && lastPicked * step >= 58) picked.push(0);
+
+      return picked;
+    }
+
+    // Quante giornate in coda cadono nell'ultimo mese: e' la finestra visibile
+    // all'apertura, il resto dello storico si raggiunge scorrendo. Il mese si
+    // conta dall'ultima giornata giocata, non da oggi: dopo una pausa lunga una
+    // finestra ancorata a oggi sarebbe vuota.
+    const VISIBLE_DAYS = 30;
+
+    function recentCount(days) {
+      if (days.length === 0) return 0;
+
+      const lastDay = days[days.length - 1].day;
+      let count = 0;
+      for (let i = days.length - 1; i >= 0 && dayDiff(days[i].day, lastDay) < VISIBLE_DAYS; i--) count++;
+      return count;
+    }
+
+    // Distanza dal bordo destro di ciascun grafico scorrevole, per titolo: il
+    // refresh automatico ricrea l'HTML ogni 10 secondi e senza riportarla chi
+    // sta guardando lo storico verrebbe rispedito all'ultimo mese. Si conta
+    // dal bordo destro perche' una giornata nuova allunga il grafico a destra:
+    // chi era in fondo ci resta, chi era indietro resta sullo stesso giorno.
+    // 'start' segna chi e' arrivato alla prima giornata (vedi wireChartScroll).
+    const chartScrollFromEnd = {};
+
+    // Grafico col tempo in tre pezzi affiancati: asse Y fermo a sinistra,
+    // storico scorrevole in mezzo, nomi fermi a destra (se ci sono). Gli SVG
+    // non possono avere parti sticky, quindi i pezzi fermi sono SVG a parte,
+    // alti uguali.
+    function scrollFrame({ key, label, height, padLeft, left, contentW, content, padRight = 0, right = '', scrollable }) {
+      const side = (w, body) => `<svg viewBox="0 0 ${w} ${height}" width="${w}" height="${height}"
+        aria-hidden="true">${body}</svg>`;
+
+      return `<div class="chart-frame">
+        ${side(padLeft, left)}
+        <div class="chart-scroll${scrollable ? ' scrollable' : ''}" data-scroll-key="${esc(key)}"
+          ${scrollable ? 'tabindex="0" aria-label="Storico: scorri per le giornate precedenti"' : ''}>
+          ${svgWrap(contentW, height, label, content)}
+        </div>
+        ${padRight ? side(padRight, right) : ''}
+      </div>`;
     }
 
     // Le etichette agli estremi vanno ancorate verso l'interno o sporgono oltre
@@ -1993,7 +2099,18 @@
       const padLeft = Math.max(22, longestTick * 6 + 12);
       const padRight = Math.min(92, longestName * CHAR_W + 12);
 
-      const plotW = Math.max(40, width - padLeft - padRight);
+      // Larghezza della finestra visibile, tra asse Y e nomi. Dentro, un
+      // margine di qualche pixel per lato: il pallino del primo e dell'ultimo
+      // giorno verrebbe tagliato a meta' dal bordo dello scorrimento.
+      const viewW = Math.max(40, width - padLeft - padRight);
+      const inset = 6;
+
+      // La finestra mostra l'ultimo mese (almeno due giornate, o non ci
+      // sarebbe una linea); lo storico prima si allunga verso sinistra con lo
+      // stesso passo, ed e' li' che si scorre.
+      const perView = Math.max(2, recentCount(byDay));
+      const step = (viewW - 2 * inset) / (perView - 1);
+      const contentW = Math.round(2 * inset + step * (byDay.length - 1));
 
       const values = ticks.map(t => t.value);
       const minV = Math.min(...values);
@@ -2002,20 +2119,25 @@
 
       const height = padTop + plotH + padBottom;
 
-      const xDay = i => padLeft + (i * plotW) / (byDay.length - 1);
+      const xDay = i => inset + i * step;
       // `invert` serve alla classifica, dove il valore piu' basso (1) va in alto.
       const yOf = v => padTop + (invert ? (v - minV) / span : 1 - (v - minV) / span) * plotH;
 
       const grid = ticks.map(t => `
-        <line x1="${padLeft}" y1="${yOf(t.value).toFixed(1)}" x2="${padLeft + plotW}" y2="${yOf(t.value).toFixed(1)}"
+        <line x1="0" y1="${yOf(t.value).toFixed(1)}" x2="${contentW}" y2="${yOf(t.value).toFixed(1)}"
           stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      `).join('');
+
+      const axis = ticks.map(t => `
         <text x="${padLeft - 8}" y="${(yOf(t.value) + 4).toFixed(1)}" text-anchor="end"
           font-size="11" style="fill: var(--text-muted)">${t.label}</text>
       `).join('');
 
-      // Con molte giornate i pallini si toccano fino a diventare una linea
-      // spessa: sopra la ventina resta solo l'ultimo, che regge l'etichetta.
-      const showDots = byDay.length <= 20;
+      // Con molte giornate nella finestra i pallini si toccano fino a
+      // diventare una linea spessa: sopra la ventina resta solo l'ultimo, che
+      // regge l'etichetta. Conta quante se ne vedono insieme, non lo storico
+      // intero: scorrendo, la densita' resta quella della finestra.
+      const showDots = perView <= 20;
 
       // I punti si calcolano tutti prima di disegnare: la posizione verticale
       // delle etichette dipende da dove finiscono TUTTE le linee, non solo la
@@ -2040,6 +2162,10 @@
         14, padTop + 4, padTop + plotH
       );
 
+      // Linee e pallini scorrono con lo storico; etichette e trattini stanno
+      // nella colonna ferma a destra, accanto all'ultimo giorno.
+      const labels = [];
+
       const series = drawn.map(({ player, points }, seriesIndex) => {
         const color = playerColor(player);
         const dash = playerDash(player);
@@ -2063,31 +2189,43 @@
         // L'etichetta e' l'identita' vera della linea: il colore da solo non
         // regge il confronto tra tutte le coppie (vedi design.md).
         const labelY = labelYs[seriesIndex];
-        const labelX = padLeft + plotW + 7;
+        const labelX = 4;
 
         // Se l'etichetta e' stata spostata per non accavallarsi, un trattino la
         // ricollega al suo punto: senza, a due nomi vicini non si saprebbe piu'
-        // quale linea appartiene a quale.
+        // quale linea appartiene a quale. Parte dal bordo della colonna, che
+        // e' a pochi pixel dall'ultimo giorno.
         const leader = Math.abs(labelY - last.y) > 3
-          ? `<line x1="${(last.x + 5).toFixed(1)}" y1="${last.y.toFixed(1)}"
+          ? `<line x1="0" y1="${last.y.toFixed(1)}"
               x2="${(labelX - 2).toFixed(1)}" y2="${labelY.toFixed(1)}"
               stroke="${color}" stroke-width="1" opacity="0.5"/>`
           : '';
 
-        const label = `<text x="${labelX.toFixed(1)}" y="${(labelY + 4).toFixed(1)}"
-            font-size="11" style="fill: var(--text-primary)">${esc(fitLabel(player, padRight - 12))}<title>${esc(player)}</title></text>`;
+        labels.push(leader + `<text x="${labelX}" y="${(labelY + 4).toFixed(1)}"
+            font-size="11" style="fill: var(--text-primary)">${esc(fitLabel(player, padRight - labelX - 4))}<title>${esc(player)}</title></text>`);
 
-        return line + leader + dots + label;
+        return line + dots;
       }).join('');
 
-      const dayLabels = axisTicks(byDay.length, plotW).map(i => `
+      const dayLabels = dayTicks(byDay.length, step, perView).map(i => `
         <text x="${xDay(i).toFixed(1)}" y="${height - 8}" font-size="11"
           text-anchor="${tickAnchor(i, byDay.length)}"
           style="fill: var(--text-muted)">${formatDayLabel(byDay[i].day)}</text>
       `).join('');
 
       return chartFigure(title,
-        svgWrap(width, height, `${title}: una linea per giocatore, giorno per giorno`, grid + series + dayLabels)
+        scrollFrame({
+          key: title,
+          label: `${title}: una linea per giocatore, giorno per giorno`,
+          height,
+          padLeft,
+          left: axis,
+          contentW,
+          content: grid + series + dayLabels,
+          padRight,
+          right: labels.join(''),
+          scrollable: perView < byDay.length
+        })
         + (note ? chartNote(note) : ''));
     }
 
@@ -2216,28 +2354,41 @@
       const top = ticks[ticks.length - 1];
 
       const padLeft = Math.max(22, String(top).length * 7 + 12);
-      const plotW = Math.max(20, width - padLeft - 6);
+      // Margine destro dentro lo scorrimento: l'ultima data e' ancorata alla
+      // fine e non deve toccare il bordo.
+      const padRight = 6;
+      const viewW = Math.max(20, width - padLeft);
       // Su mobile una giornata e' una barra di pochi pixel: l'altezza e' l'unica
       // dimensione da cui i segmenti di ciascun giocatore possono prendere spazio.
       const plotH = 400;
       const height = padTop + plotH + padBottom;
 
+      // Scala sull'intero storico, non sulla sola finestra: scorrendo, la
+      // stessa barra deve restare alta uguale.
       const unit = plotH / top;
-      const slot = plotW / days.length;
+      // Nella finestra entra l'ultimo mese; le giornate prima continuano a
+      // sinistra con la stessa larghezza, da raggiungere scorrendo.
+      const perView = recentCount(days);
+      const slot = (viewW - padRight) / perView;
+      const contentW = Math.round(slot * days.length + padRight);
       // 2px di respiro tra barre adiacenti, e un tetto alla larghezza: con due
       // sole giornate barre da mezzo grafico sembrerebbero un'altra cosa.
       const barW = Math.max(3, Math.min(30, slot - 2));
 
       const gridLines = ticks.map(v => {
         const y = padTop + plotH - v * unit;
-        return `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${padLeft + plotW}" y2="${y.toFixed(1)}"
-          stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-          <text x="${padLeft - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11"
-            style="fill: var(--text-muted)">${v}</text>`;
+        return `<line x1="0" y1="${y.toFixed(1)}" x2="${contentW}" y2="${y.toFixed(1)}"
+          stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
       });
 
+      const axis = ticks.map(v => {
+        const y = padTop + plotH - v * unit;
+        return `<text x="${padLeft - 7}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11"
+            style="fill: var(--text-muted)">${v}</text>`;
+      }).join('');
+
       const bars = days.map((entry, i) => {
-        const x = padLeft + i * slot + (slot - barW) / 2;
+        const x = i * slot + (slot - barW) / 2;
 
         // Ordine di impilamento per indice del giocatore: e' lo stesso in tutte
         // le giornate e in tutti e due i grafici, quindi i segmenti non si
@@ -2273,14 +2424,23 @@
         }).join('');
       }).join('');
 
-      const labels = axisTicks(days.length, plotW).map(i => `
-        <text x="${(padLeft + i * slot + slot / 2).toFixed(1)}" y="${height - 7}" font-size="11"
+      const labels = dayTicks(days.length, slot, perView).map(i => `
+        <text x="${(i * slot + slot / 2).toFixed(1)}" y="${height - 7}" font-size="11"
           text-anchor="${tickAnchor(i, days.length)}"
           style="fill: var(--text-muted)">${formatDayLabel(days[i].day)}</text>
       `).join('');
 
       return chartFigure(title,
-        svgWrap(width, height, `${title}, per giornata e per giocatore`, gridLines.join('') + bars + labels)
+        scrollFrame({
+          key: title,
+          label: `${title}, per giornata e per giocatore`,
+          height,
+          padLeft,
+          left: axis,
+          contentW,
+          content: gridLines.join('') + bars + labels,
+          scrollable: perView < days.length
+        })
         + (note ? chartNote(note) : ''));
     }
 
@@ -2422,10 +2582,13 @@
     // all'altro cambia il dato e non il modo di leggerlo.
     // `charts` e' una lista fissa o, per i matchup, una funzione: li' c'e' una
     // card per giocatore, e la lista segue la rosa e la legenda.
+    // `swipe: false` per i grafici col tempo: il gesto orizzontale scorre lo
+    // storico, quindi tra le card ci si muove solo con frecce e puntini.
     const CHART_GROUPS = [
       {
         id: 'standing',
         title: '🏆 Classifica',
+        swipe: false,
         charts: [
           { title: 'Andamento classifica', render: (w, ctx) => renderRankHistory(w, ctx.byDay) },
           { title: 'Andamento Rating', render: (w, ctx) => renderEloHistory(w, ctx.byDay) },
@@ -2435,6 +2598,7 @@
       {
         id: 'matches',
         title: '🎮 Partite',
+        swipe: false,
         charts: [
           { title: 'Presenze per giorno', render: (w) => renderPresencePerDay(w) },
           { title: 'Vittorie per giorno', render: (w) => renderWinsPerDay(w) }
@@ -2545,7 +2709,7 @@
         <section class="chart-group">
           <h3 class="group-title">${group.title}</h3>
           <div class="carousel" data-group="${group.id}">
-            <div class="carousel-track">${cards}</div>
+            <div class="carousel-track${group.swipe === false ? ' locked' : ''}">${cards}</div>
             <div class="carousel-nav">
               <button type="button" class="carousel-arrow" data-dir="-1" aria-label="Grafico precedente">‹</button>
               <div class="carousel-dots">${dots}</div>
@@ -2594,6 +2758,10 @@
           }
         }, 80);
       });
+
+      // Carosello bloccato: il trascinamento appartiene allo storico dentro
+      // la card (vedi wireChartScroll).
+      if (group.swipe === false) return;
 
       // Trascinamento col puntatore. Sul touch non serve — lo scroll nativo fa
       // gia' tutto — e intercettarlo li' toglierebbe lo scorrimento inerziale.
@@ -2653,6 +2821,67 @@
       track.addEventListener('pointerleave', endDrag);
     }
 
+    // Storico scorrevole dentro un grafico col tempo: riporta la posizione di
+    // prima del refresh (all'apertura, l'ultimo mese) e aggiunge il
+    // trascinamento col mouse. Sul touch basta lo scroll nativo.
+    function wireChartScroll(scroller) {
+      const key = scroller.dataset.scrollKey;
+      const maxLeft = () => scroller.scrollWidth - scroller.clientWidth;
+
+      // Chi era all'inizio dello storico ci resta: dopo un resize il grafico
+      // cambia larghezza, e la sola distanza dalla fine lo farebbe scivolare
+      // di qualche pixel lontano dalla prima giornata.
+      const saved = chartScrollFromEnd[key];
+      scroller.scrollLeft = saved === 'start' ? 0 : Math.max(0, maxLeft() - (saved || 0));
+
+      scroller.addEventListener('scroll', () => {
+        const fromEnd = Math.max(0, maxLeft() - scroller.scrollLeft);
+        chartScrollFromEnd[key] = scroller.scrollLeft <= 0 && fromEnd > 0 ? 'start' : fromEnd;
+      });
+
+      if (!scroller.classList.contains('scrollable')) return;
+
+      let drag = null;
+
+      scroller.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch' || e.button !== 0) return;
+        drag = { startX: e.clientX, startLeft: scroller.scrollLeft, moved: false };
+      });
+
+      scroller.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+
+        const dx = e.clientX - drag.startX;
+
+        // Stessa soglia del carosello: un click fermo su un punto non e' un
+        // trascinamento, e il tooltip deve restare raggiungibile.
+        if (!drag.moved && Math.abs(dx) < 4) return;
+
+        if (!drag.moved) {
+          drag.moved = true;
+          scroller.classList.add('dragging');
+          try {
+            scroller.setPointerCapture(e.pointerId);
+          } catch {
+            /* puntatore non catturabile: si prosegue senza */
+          }
+        }
+
+        scroller.scrollLeft = drag.startLeft - dx;
+        e.preventDefault();
+      });
+
+      const endDrag = () => {
+        if (!drag) return;
+        drag = null;
+        scroller.classList.remove('dragging');
+      };
+
+      scroller.addEventListener('pointerup', endDrag);
+      scroller.addEventListener('pointercancel', endDrag);
+      scroller.addEventListener('pointerleave', endDrag);
+    }
+
     function updateCharts(isRetry) {
       refreshActiveRoster();
 
@@ -2681,6 +2910,7 @@
       });
 
       CHART_GROUPS.forEach(group => wireCarousel(group, width));
+      host.querySelectorAll('.chart-scroll').forEach(wireChartScroll);
 
       // Inserire i grafici allunga la pagina: se cosi' compare la barra di
       // scorrimento verticale, la larghezza utile cala di una quindicina di
